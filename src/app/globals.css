@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  /* border: 1px solid #999999; */
+  -webkit-text-fill-color: inherit !important;
+  -webkit-box-shadow: 0 0 0px 1000px transparent inset !important;
+  box-shadow: 0 0 0px 1000px transparent inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  color: inherit;
+  caret-color: black;
+}
+
+input:autofill {
+  background: transparent;
+}
+
+input {
+  filter: none !important;
+}
+
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@layer utilities {
+  @keyframes scan {
+    0%, 100% { transform: translateY(0%); }
+    50% { transform: translateY(calc(100% - 4px)); }
+  }
+  .animate-scan {
+    animation: scan 2s ease-in-out infinite;
+  }
+}
+
+.animation-container {
+  position: relative;
+}
+
+.animation-container .animate-ping {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: white;
+  border-radius: 1px;
+  animation: ping 1.5s infinite;
+}
+
+@keyframes ping {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
