@@ -177,14 +177,42 @@ const FingerPrintCapture: React.FC = () => {
       setIsScanning(true);
 
       setTimeout(() => {
-        const imageName = `${batchId}_${Date.now()}.png`;
-        const base64Data = data.slap_image_base64;
-        const file = base64ToFile(base64Data, imageName, "image/png");
+        // Clean the base64 string - remove whitespace, newlines, and any prefix
+        let base64Data = data.slap_image_base64 || "";
+        let mimeType = "image/png";
 
-        // Create a data URL for display
-        const imageDataUrl = base64Data.startsWith("data:")
-          ? base64Data
-          : `data:image/png;base64,${base64Data}`;
+        // If it already has a data URL prefix, extract mime type and base64 part
+        if (base64Data.startsWith("data:")) {
+          const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            mimeType = match[1];
+            base64Data = match[2];
+          }
+        }
+
+        // Remove any whitespace or newlines
+        base64Data = base64Data.replace(/\s/g, "");
+
+        // Detect image format from base64 header bytes
+        // PNG starts with: iVBORw0KGgo (89 50 4E 47)
+        // BMP starts with: Qk (42 4D)
+        // JPEG starts with: /9j/ (FF D8 FF)
+        // GIF starts with: R0lGOD (47 49 46)
+        if (base64Data.startsWith("Qk")) {
+          mimeType = "image/bmp";
+        } else if (base64Data.startsWith("/9j/") || base64Data.startsWith("/9k/")) {
+          mimeType = "image/jpeg";
+        } else if (base64Data.startsWith("R0lGOD")) {
+          mimeType = "image/gif";
+        } else if (base64Data.startsWith("iVBORw")) {
+          mimeType = "image/png";
+        }
+
+        const ext = mimeType.split("/")[1] || "png";
+        const imageName = `${batchId}_${Date.now()}.${ext}`;
+        const imageDataUrl = `data:${mimeType};base64,${base64Data}`;
+
+        const file = base64ToFile(imageDataUrl, imageName, mimeType);
 
         setCapturedBatches((prev) => ({
           ...prev,
@@ -464,47 +492,47 @@ const FingerPrintCapture: React.FC = () => {
                 {/* Capture box */}
                 <div className="flex-1 flex items-center justify-center">
                   <div className="relative">
-                    <div className="w-80 overflow-hidden rounded-xl border-4 border-gray-300 bg-gray-50 h-[420px] lg:h-[52vh] lg:max-h-[28rem] shadow-inner">
+                    <div className="w-[400px] max-w-[90vw] overflow-hidden rounded-2xl border-4 border-green-600 bg-gray-900 h-[480px] lg:h-[56vh] lg:max-h-[32rem] shadow-xl">
                       {capturedBatches[currentBatch.id] && !isScanning ? (
-                        <div className="relative h-full w-full">
+                        <div className="relative h-full w-full flex items-center justify-center bg-gray-900 p-2">
                           <img
                             src={capturedBatches[currentBatch.id]!.image}
                             alt={currentBatch.name}
-                            className="h-full w-full object-cover"
+                            className="max-h-full max-w-full object-contain rounded-lg"
                           />
                           <button
                             onClick={() => deleteFingerprintBatch(currentBatch.id)}
-                            className="absolute -right-3 -top-3 rounded-full bg-red-500 p-2.5 shadow-lg transition-all hover:bg-red-600 hover:scale-110"
+                            className="absolute right-2 top-2 rounded-full bg-red-500 p-2.5 shadow-lg transition-all hover:bg-red-600 hover:scale-110"
                             aria-label="Delete fingerprints"
                           >
                             <X className="h-5 w-5 text-white" />
                           </button>
                         </div>
                       ) : isScanning ? (
-                        <div className="relative flex h-full w-full flex-col items-center justify-center bg-gradient-to-b from-green-400/40 to-green-600/40">
-                          <div className="animate-scan absolute left-0 right-0 h-2 bg-green-600 shadow-lg" />
-                          <div className="flex gap-3 mb-4">
-                            {currentBatch.fingers.map((_, idx) => (
-                              <PiFingerprintBold
-                                key={idx} 
-                                className="h-16 w-16 animate-pulse text-white drop-shadow-lg" 
-                                style={{ animationDelay: `${idx * 0.2}s` }}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-white font-semibold text-lg animate-pulse">Scanning...</p>
-                        </div>
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center">
+                        <div className="relative flex h-full w-full flex-col items-center justify-center bg-gray-900">
+                          <div className="animate-scan absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
                           <div className="flex gap-4 mb-4">
                             {currentBatch.fingers.map((_, idx) => (
                               <PiFingerprintBold
-                                key={idx} 
-                                className="h-20 w-20 text-gray-300" 
+                                key={idx}
+                                className="h-16 w-16 animate-pulse text-green-500 drop-shadow-lg"
+                                style={{ animationDelay: `${idx * 0.15}s` }}
                               />
                             ))}
                           </div>
-                         
+                          <p className="text-green-400 font-semibold text-lg animate-pulse">Scanning...</p>
+                        </div>
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900">
+                          <div className="flex gap-4 mb-4">
+                            {currentBatch.fingers.map((_, idx) => (
+                              <PiFingerprintBold
+                                key={idx}
+                                className="h-20 w-20 text-gray-600"
+                              />
+                            ))}
+                          </div>
+                          <p className="text-gray-500 text-sm">Waiting for scanner...</p>
                         </div>
                       )}
                     </div>
