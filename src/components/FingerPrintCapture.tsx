@@ -69,6 +69,12 @@ const FINGER_FIELD_MAP: Record<FingerId, keyof EnrollmentFormData> = {
   R5: "right_little",
 };
 
+const BATCH_ENDPOINT_MAP: Record<BatchId, string> = {
+  right_four: "/api/enrollment/four-fingers-right",
+  left_four: "/api/enrollment/four-fingers-left",
+  thumbs: "/api/enrollment/two-thumbs",
+};
+
 function base64ToFile(base64: string, fileName: string, fallbackType = "image/png"): File {
   let mime = fallbackType;
   let data = base64;
@@ -136,6 +142,7 @@ const FingerPrintCapture: React.FC = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof EnrollmentFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitDone, setSubmitDone] = useState<boolean>(false);
+  const [sessionUserId] = useState<string>(() => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`);
 
   const currentBatch = FINGER_BATCHES[currentBatchIndex];
   const capturedCount = useMemo(() => Object.keys(capturedBatches).length, [capturedBatches]);
@@ -144,25 +151,47 @@ const FingerPrintCapture: React.FC = () => {
   const fetchFingerprintBatch = async (batchId: BatchId) => {
     try {
       setIsCapturing(true);
-      const res = await fetch(`${PY_URL}/scan-fingerprint-batch`, {
+      const endpoint = BATCH_ENDPOINT_MAP[batchId];
+      const res = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batch_type: batchId }),
+        body: JSON.stringify({
+          user_id: sessionUserId,
+          timeout_ms: 15000
+        }),
       });
       
       if (!res.ok) throw new Error("Failed to scan fingerprint batch");
 
-      const data: { image: string; base64: string; imageName: string } = await res.json();
+      const data: {
+        success: boolean;
+        message: string;
+        slap_image_base64: string;
+        capture_type: string;
+        num_fingers: number;
+        user_id: string;
+      } = await res.json();
+
+      if (!data.success) throw new Error(data.message || "Fingerprint capture failed");
+
       setIsScanning(true);
-      
+
       setTimeout(() => {
-        const file = base64ToFile(data.base64, data.imageName, "image/png");
+        const imageName = `${batchId}_${Date.now()}.png`;
+        const base64Data = data.slap_image_base64;
+        const file = base64ToFile(base64Data, imageName, "image/png");
+
+        // Create a data URL for display
+        const imageDataUrl = base64Data.startsWith("data:")
+          ? base64Data
+          : `data:image/png;base64,${base64Data}`;
+
         setCapturedBatches((prev) => ({
           ...prev,
           [batchId]: {
-            image: `${PY_URL}/${data.image}`,
-            base64: data.base64,
-            imageName: data.imageName,
+            image: imageDataUrl,
+            base64: base64Data,
+            imageName: imageName,
             file,
           },
         }));
