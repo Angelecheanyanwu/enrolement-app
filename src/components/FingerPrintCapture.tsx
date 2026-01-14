@@ -1,11 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
-import {
-  X,
-  CheckCircle,
-  ArrowRight,
-  ArrowLeft,
-} from "lucide-react";
+import { X, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import { PiFingerprintBold } from "react-icons/pi";
 import Header from "./Header";
 import FaceCapture from "./FaceCapture";
@@ -16,7 +11,8 @@ const FINGER_BATCHES = [
     id: "right_four",
     name: "Right Four Fingers",
     hand: "right",
-    instruction: "Place your RIGHT Index, Middle, Ring, and Pinky fingers on the scanner",
+    instruction:
+      "Place your RIGHT Index, Middle, Ring, and Pinky fingers on the scanner",
     fingers: ["R2", "R3", "R4", "R5"],
     fingerNames: ["Index", "Middle", "Ring", "Pinky"],
     fullNames: ["Right Index", "Right Middle", "Right Ring", "Right Pinky"],
@@ -25,7 +21,8 @@ const FINGER_BATCHES = [
     id: "left_four",
     name: "Left Four Fingers",
     hand: "left",
-    instruction: "Place your LEFT Pinky, Middle, Ring, and Index fingers on the scanner",
+    instruction:
+      "Place your LEFT Pinky, Middle, Ring, and Index fingers on the scanner",
     fingers: ["L5", "L4", "L3", "L2"],
     fingerNames: ["Pinky", "Ring", "Middle", "Index"],
     fullNames: ["Left Pinky", "Left Ring", "Left Middle", "Left Index"],
@@ -59,7 +56,11 @@ const BATCH_ENDPOINT_MAP: Record<BatchId, string> = {
   thumbs: "/api/enrollment/two-thumbs",
 };
 
-function base64ToFile(base64: string, fileName: string, fallbackType = "image/png"): File {
+function base64ToFile(
+  base64: string,
+  fileName: string,
+  fallbackType = "image/png"
+): File {
   let mime = fallbackType;
   let data = base64;
   if (base64.startsWith("data:")) {
@@ -71,7 +72,9 @@ function base64ToFile(base64: string, fileName: string, fallbackType = "image/pn
   const bin = atob(data);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new File([bytes], fileName || `finger-${Date.now()}.png`, { type: mime });
+  return new File([bytes], fileName || `finger-${Date.now()}.png`, {
+    type: mime,
+  });
 }
 
 enum Step {
@@ -115,13 +118,20 @@ const FingerPrintCapture: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
   const [form, setForm] = useState<EnrollmentFormData>(initialForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof EnrollmentFormData, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof EnrollmentFormData, string>>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitDone, setSubmitDone] = useState<boolean>(false);
-  const [sessionUserId] = useState<string>(() => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`);
+  const [sessionUserId] = useState<string>(
+    () => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+  );
 
   const currentBatch = FINGER_BATCHES[currentBatchIndex];
-  const capturedCount = useMemo(() => Object.keys(capturedBatches).length, [capturedBatches]);
+  const capturedCount = useMemo(
+    () => Object.keys(capturedBatches).length,
+    [capturedBatches]
+  );
   const allBatchesCaptured = capturedCount === FINGER_BATCHES.length;
 
   const fetchFingerprintBatch = async (batchId: BatchId) => {
@@ -134,10 +144,10 @@ const FingerPrintCapture: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: sessionUserId,
-          timeout_ms: 15000
+          timeout_ms: 15000,
         }),
       });
-      
+
       if (!res.ok) throw new Error("Failed to scan fingerprint batch");
 
       const data: {
@@ -149,7 +159,8 @@ const FingerPrintCapture: React.FC = () => {
         user_id: string;
       } = await res.json();
 
-      if (!data.success) throw new Error(data.message || "Fingerprint capture failed");
+      if (!data.success)
+        throw new Error(data.message || "Fingerprint capture failed");
 
       setTimeout(() => {
         // Clean the base64 string - remove whitespace, newlines, and any prefix
@@ -175,7 +186,10 @@ const FingerPrintCapture: React.FC = () => {
         // GIF starts with: R0lGOD (47 49 46)
         if (base64Data.startsWith("Qk")) {
           mimeType = "image/bmp";
-        } else if (base64Data.startsWith("/9j/") || base64Data.startsWith("/9k/")) {
+        } else if (
+          base64Data.startsWith("/9j/") ||
+          base64Data.startsWith("/9k/")
+        ) {
           mimeType = "image/jpeg";
         } else if (base64Data.startsWith("R0lGOD")) {
           mimeType = "image/gif";
@@ -241,7 +255,11 @@ const FingerPrintCapture: React.FC = () => {
     setCurrentBatchIndex(index);
 
     // Only trigger capture if batch hasn't been captured yet and not currently capturing
-    if (!capturedBatches[batch.id] && !isCapturing && step === Step.Fingerprints) {
+    if (
+      !capturedBatches[batch.id] &&
+      !isCapturing &&
+      step === Step.Fingerprints
+    ) {
       void fetchFingerprintBatch(batch.id);
     }
   };
@@ -262,71 +280,92 @@ const FingerPrintCapture: React.FC = () => {
     if (!allBatchesCaptured) return;
     setStep(Step.PersonalInfo);
   };
-  
+
   const goBackToFingerprints = () => setStep(Step.Fingerprints);
 
   const validatePersonalInfo = () => {
     const e: Partial<Record<keyof EnrollmentFormData, string>> = {};
     const required: (keyof EnrollmentFormData)[] = [
-      "nin","title","surname","first_name","middle_name",
-      "birth_date","birth_state","birth_lga","nationality","gender",
-      "email_address","telephone_no","address_line_one","address_line_two",
-      "r_lga","r_state","town",
+      "nin",
+      "title",
+      "surname",
+      "first_name",
+      "middle_name",
+      "birth_date",
+      "birth_state",
+      "birth_lga",
+      "nationality",
+      "gender",
+      "email_address",
+      "telephone_no",
+      "address_line_one",
+      "address_line_two",
+      "r_lga",
+      "r_state",
+      "town",
     ];
-    
+
     required.forEach((k) => {
       const val = form[k] as unknown as string;
       if (!val || String(val).trim() === "") e[k] = "Required";
     });
-    
+
     if (!/^\d{11}$/.test(form.nin)) e.nin = "NIN must be 11 digits";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_address)) e.email_address = "Invalid email";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.birth_date)) e.birth_date = "Use YYYY-MM-DD";
-    if (!form.height || Number(form.height) <= 0) e.height = "Enter height in meters";
-    
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_address))
+      e.email_address = "Invalid email";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.birth_date))
+      e.birth_date = "Use YYYY-MM-DD";
+    if (!form.height || Number(form.height) <= 0)
+      e.height = "Enter height in meters";
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-  
+
   const goToFace = () => {
     if (validatePersonalInfo()) setStep(Step.Face);
   };
 
   const handleSubmitEnrollment = async () => {
-    const fingerKeys: (keyof EnrollmentFormData)[] = [
-      "left_four", "right_four", "thumbs",
-    ];
-
-    const missing = fingerKeys.find((k) => !form[k]);
-    if (missing) {
-      alert(`Missing fingerprint: ${String(missing).replaceAll("_", " ")}`);
-      setStep(Step.Fingerprints);
-      return;
-    }
-
-    if (!form.face_image) {
-      alert("Please capture face image");
-      setStep(Step.Face);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const fd = new FormData();
 
-      ([
-        "nin","title","surname","first_name","middle_name",
-        "birth_date","birth_state","birth_lga","nationality","gender",
-        "email_address","telephone_no","address_line_one","address_line_two",
-        "r_lga","r_state","town",
-      ] as (keyof EnrollmentFormData)[]).forEach((k) => {
+      (
+        [
+          "nin",
+          "title",
+          "surname",
+          "first_name",
+          "middle_name",
+          "birth_date",
+          "birth_state",
+          "birth_lga",
+          "nationality",
+          "gender",
+          "email_address",
+          "telephone_no",
+          "address_line_one",
+          "address_line_two",
+          "r_lga",
+          "r_state",
+          "town",
+        ] as (keyof EnrollmentFormData)[]
+      ).forEach((k) => {
         fd.append(k, String(form[k] ?? ""));
       });
 
       fd.append("height", String(Number(form.height || 0)));
 
       // Append biometric files
-      (["face_image", "left_four", "right_four", "thumbs"] as (keyof EnrollmentFormData)[]).forEach((k) => {
+      (
+        [
+          "face_image",
+          "left_four",
+          "right_four",
+          "thumbs",
+        ] as (keyof EnrollmentFormData)[]
+      ).forEach((k) => {
         const f = form[k] as unknown as File | null;
         if (f) fd.append(k, f, f.name || `${String(k)}.png`);
       });
@@ -348,7 +387,11 @@ const FingerPrintCapture: React.FC = () => {
       setSubmitDone(true);
     } catch (err) {
       console.error("Enrollment failed:", err);
-      alert(`Failed to submit enrollment: ${err instanceof Error ? err.message : "Unknown error"}`);
+      alert(
+        `Failed to submit enrollment: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -357,10 +400,12 @@ const FingerPrintCapture: React.FC = () => {
   if (submitDone) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header currentStep={3} totalSteps={3} />
+        <Header currentStep={4} totalSteps={3} completedSteps={[1, 2, 3]} />
         <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center p-6">
           <div className="w-full rounded-lg bg-white p-8 text-center shadow">
-            <h2 className="mb-2 text-2xl font-bold text-green-600">Enrollment Complete!</h2>
+            <h2 className="mb-2 text-2xl font-bold text-green-600">
+              Enrollment Complete!
+            </h2>
             <p className="text-gray-600">All data submitted successfully.</p>
           </div>
         </div>
@@ -368,9 +413,18 @@ const FingerPrintCapture: React.FC = () => {
     );
   }
 
+  const completedSteps = [];
+  if (step > Step.Fingerprints) completedSteps.push(Step.Fingerprints);
+  if (step > Step.PersonalInfo) completedSteps.push(Step.PersonalInfo);
+  if (step > Step.Face) completedSteps.push(Step.Face);
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-green-50 to-blue-50 flex flex-col">
-      <Header currentStep={step} totalSteps={3} />
+      <Header
+        currentStep={step}
+        totalSteps={3}
+        completedSteps={completedSteps}
+      />
 
       <main className="flex-1 overflow-auto lg:overflow-hidden">
         {step === Step.Fingerprints && (
@@ -379,7 +433,9 @@ const FingerPrintCapture: React.FC = () => {
               {/* Left panel - Batch List */}
               <div className="min-h-[520px] rounded-lg bg-white p-6 shadow-lg overflow-visible lg:overflow-hidden flex flex-col lg:h-full">
                 <div className="mb-3 flex items-center justify-between shrink-0">
-                  <h3 className="text-xl font-semibold text-gray-800">Capture Stages</h3>
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Capture Stages
+                  </h3>
                   <div className="rounded-full bg-white px-4 py-1.5 shadow">
                     <span className="text-xs font-medium text-gray-700">
                       {capturedCount}/{FINGER_BATCHES.length} Complete
@@ -402,17 +458,23 @@ const FingerPrintCapture: React.FC = () => {
                       <div className="flex items-start gap-3 flex-1">
                         <div
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                            capturedBatches[batch.id] ? "bg-green-600" : "bg-gray-300"
+                            capturedBatches[batch.id]
+                              ? "bg-green-600"
+                              : "bg-gray-300"
                           }`}
                         >
                           {capturedBatches[batch.id] ? (
                             <CheckCircle className="h-6 w-6 text-white" />
                           ) : (
-                            <span className="text-sm font-bold text-white">{index + 1}</span>
+                            <span className="text-sm font-bold text-white">
+                              {index + 1}
+                            </span>
                           )}
                         </div>
                         <div className="text-left flex-1">
-                          <p className="text-sm font-semibold text-gray-800 mb-1">{batch.name}</p>
+                          <p className="text-sm font-semibold text-gray-800 mb-1">
+                            {batch.name}
+                          </p>
                           <div className="flex flex-wrap gap-1">
                             {batch.fingerNames.map((name, idx) => (
                               <span
@@ -433,22 +495,21 @@ const FingerPrintCapture: React.FC = () => {
               {/* Right panel - Capture Area */}
               <div className="rounded-lg bg-white p-6 shadow-lg lg:col-span-2 flex flex-col lg:h-full">
                 <div className="mb-4">
-                  <h2 className="mb-2 text-2xl font-bold text-gray-800">{currentBatch.name}</h2>
+                  <h2 className="mb-2 text-2xl font-bold text-gray-800">
+                    {currentBatch.name}
+                  </h2>
                   <p className="text-gray-600 mb-3">
                     {capturedBatches[currentBatch.id]
                       ? "Fingerprints captured successfully. You can recapture or proceed to the next stage."
                       : currentBatch.instruction}
                   </p>
-                  
+
                   {/* Visual finger indicators */}
                   <div className="flex items-center justify-center gap-2 mb-3">
                     {currentBatch.hand === "both" ? (
-                      <>
-                  
-                      </>
+                      <></>
                     ) : (
-                      <div className="flex flex-col items-center gap-1">
-                      </div>
+                      <div className="flex flex-col items-center gap-1"></div>
                     )}
                   </div>
                 </div>
@@ -465,7 +526,9 @@ const FingerPrintCapture: React.FC = () => {
                             className="max-h-full max-w-full object-contain rounded-lg"
                           />
                           <button
-                            onClick={() => deleteFingerprintBatch(currentBatch.id)}
+                            onClick={() =>
+                              deleteFingerprintBatch(currentBatch.id)
+                            }
                             className="absolute right-2 top-2 rounded-full bg-red-500 p-2.5 shadow-lg transition-all hover:bg-red-600 hover:scale-110"
                             aria-label="Delete fingerprints"
                           >
@@ -484,7 +547,9 @@ const FingerPrintCapture: React.FC = () => {
                               />
                             ))}
                           </div>
-                          <p className="text-green-400 font-semibold text-lg animate-pulse">Scanning...</p>
+                          <p className="text-green-400 font-semibold text-lg animate-pulse">
+                            Scanning...
+                          </p>
                         </div>
                       ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center bg-gray-200">
@@ -496,7 +561,9 @@ const FingerPrintCapture: React.FC = () => {
                               />
                             ))}
                           </div>
-                          <p className="text-gray-500 text-sm">Waiting for scanner...</p>
+                          <p className="text-gray-500 text-sm">
+                            Waiting for scanner...
+                          </p>
                         </div>
                       )}
                     </div>
@@ -584,8 +651,99 @@ const FingerPrintCapture: React.FC = () => {
                 isSubmitting={isSubmitting}
                 onBack={() => setStep(Step.PersonalInfo)}
                 onComplete={(file) => {
-                  setForm((f) => ({ ...f, face_image: file }));
-                  void handleSubmitEnrollment();
+                  // Submit immediately with face image
+                  setIsSubmitting(true);
+                  (async () => {
+                    try {
+                      const fd = new FormData();
+
+                      (
+                        [
+                          "nin",
+                          "title",
+                          "surname",
+                          "first_name",
+                          "middle_name",
+                          "birth_date",
+                          "birth_state",
+                          "birth_lga",
+                          "nationality",
+                          "gender",
+                          "email_address",
+                          "telephone_no",
+                          "address_line_one",
+                          "address_line_two",
+                          "r_lga",
+                          "r_state",
+                          "town",
+                        ] as (keyof EnrollmentFormData)[]
+                      ).forEach((k) => {
+                        fd.append(k, String(form[k] ?? ""));
+                      });
+
+                      fd.append("height", String(Number(form.height || 0)));
+
+                      // Append face image
+                      if (file)
+                        fd.append("face_image", file, file.name || "face.png");
+
+                      // Append fingerprint files
+                      const leftFourFile =
+                        form.left_four as unknown as File | null;
+                      if (leftFourFile)
+                        fd.append(
+                          "left_four",
+                          leftFourFile,
+                          leftFourFile.name || "left_four.png"
+                        );
+
+                      const rightFourFile =
+                        form.right_four as unknown as File | null;
+                      if (rightFourFile)
+                        fd.append(
+                          "right_four",
+                          rightFourFile,
+                          rightFourFile.name || "right_four.png"
+                        );
+
+                      const thumbsFile = form.thumbs as unknown as File | null;
+                      if (thumbsFile)
+                        fd.append(
+                          "thumbs",
+                          thumbsFile,
+                          thumbsFile.name || "thumbs.png"
+                        );
+
+                      const resp = await fetch(
+                        `${API_URL}/api/enrollment/enroll`,
+                        {
+                          method: "POST",
+                          body: fd,
+                        }
+                      );
+
+                      if (!resp.ok) {
+                        let msg = `HTTP ${resp.status}`;
+                        try {
+                          const data = await resp.json();
+                          msg = (data?.message ||
+                            data?.detail ||
+                            msg) as string;
+                        } catch {}
+                        throw new Error(msg);
+                      }
+
+                      setSubmitDone(true);
+                    } catch (err) {
+                      console.error("Enrollment failed:", err);
+                      alert(
+                        `Failed to submit enrollment: ${
+                          err instanceof Error ? err.message : "Unknown error"
+                        }`
+                      );
+                      setIsSubmitting(false);
+                    }
+                  })();
                 }}
               />
             </div>
@@ -597,7 +755,9 @@ const FingerPrintCapture: React.FC = () => {
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/20 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4 rounded-xl bg-white p-8 shadow-2xl">
             <div className="h-12 w-12 animate-spin rounded-full border-b-4 border-green-600" />
-            <p className="text-base font-medium text-gray-700">Submitting enrollment…</p>
+            <p className="text-base font-medium text-gray-700">
+              Submitting enrollment…
+            </p>
           </div>
         </div>
       )}
