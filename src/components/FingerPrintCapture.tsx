@@ -1,12 +1,10 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Fingerprint as FingerprintIcon,
   X,
   CheckCircle,
   ArrowRight,
   ArrowLeft,
-  Hand,
 } from "lucide-react";
 import { PiFingerprintBold } from "react-icons/pi";
 import Header from "./Header";
@@ -43,7 +41,6 @@ const FINGER_BATCHES = [
   },
 ] as const;
 
-type FingerId = "L1" | "L2" | "L3" | "L4" | "L5" | "R1" | "R2" | "R3" | "R4" | "R5";
 type BatchId = "right_four" | "left_four" | "thumbs";
 
 type FingerprintBatchData = {
@@ -55,19 +52,6 @@ type FingerprintBatchData = {
 
 const PY_URL = process.env.NEXT_PUBLIC_PYTHON_URL ?? "";
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
-const FINGER_FIELD_MAP: Record<FingerId, keyof EnrollmentFormData> = {
-  L1: "left_thumb",
-  L2: "left_index",
-  L3: "left_middle",
-  L4: "left_ring",
-  L5: "left_little",
-  R1: "right_thumb",
-  R2: "right_index",
-  R3: "right_middle",
-  R4: "right_ring",
-  R5: "right_little",
-};
 
 const BATCH_ENDPOINT_MAP: Record<BatchId, string> = {
   right_four: "/api/enrollment/four-fingers-right",
@@ -117,16 +101,9 @@ const initialForm: EnrollmentFormData = {
   town: "",
   height: 0,
   face_image: null,
-  right_thumb: null,
-  right_index: null,
-  right_middle: null,
-  right_ring: null,
-  right_little: null,
-  left_thumb: null,
-  left_index: null,
-  left_middle: null,
-  left_ring: null,
-  left_little: null,
+  left_four: null,
+  right_four: null,
+  thumbs: null,
 };
 
 const FingerPrintCapture: React.FC = () => {
@@ -153,7 +130,7 @@ const FingerPrintCapture: React.FC = () => {
       setIsCapturing(true);
       setIsScanning(true);
       const endpoint = BATCH_ENDPOINT_MAP[batchId];
-      const res = await fetch(`${API_URL}${endpoint}`, {
+      const res = await fetch(`${PY_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,17 +199,10 @@ const FingerPrintCapture: React.FC = () => {
             file,
           },
         }));
-        
-        const batch = FINGER_BATCHES.find(b => b.id === batchId);
-        if (batch) {
-          const updates: any = {};
-          batch.fingers.forEach((fingerId) => {
-            const field = FINGER_FIELD_MAP[fingerId];
-            updates[field] = file;
-          });
-          setForm((f) => ({ ...f, ...updates }));
-        }
-        
+
+        // Update form with batch file using batch ID as field name
+        setForm((f) => ({ ...f, [batchId]: file }));
+
         setIsScanning(false);
         setIsCapturing(false);
       }, 2000);
@@ -246,47 +216,47 @@ const FingerPrintCapture: React.FC = () => {
   const deleteFingerprintBatch = async (batchId: BatchId) => {
     const batchData = capturedBatches[batchId];
     if (!batchData) return;
-    
+
     try {
       await fetch(`${PY_URL}/delete-fingerprint`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: batchData.imageName,
       });
-      
+
       setCapturedBatches((prev) => {
         const copy = { ...prev };
         delete copy[batchId];
         return copy;
       });
-      
-      const batch = FINGER_BATCHES.find(b => b.id === batchId);
-      if (batch) {
-        const updates: any = {};
-        batch.fingers.forEach((fingerId) => {
-          const field = FINGER_FIELD_MAP[fingerId];
-          updates[field] = null;
-        });
-        setForm((f) => ({ ...f, ...updates }));
-      }
+
+      // Clear the batch field in form
+      setForm((f) => ({ ...f, [batchId]: null }));
     } catch (e) {
       console.error("Error deleting fingerprint batch:", e);
     }
   };
 
-  useEffect(() => {
-    const id = currentBatch.id;
-    if (!capturedBatches[id] && !isCapturing && step === Step.Fingerprints) {
-      void fetchFingerprintBatch(id);
+  const handleBatchSelect = (index: number) => {
+    const batch = FINGER_BATCHES[index];
+    setCurrentBatchIndex(index);
+
+    // Only trigger capture if batch hasn't been captured yet and not currently capturing
+    if (!capturedBatches[batch.id] && !isCapturing && step === Step.Fingerprints) {
+      void fetchFingerprintBatch(batch.id);
     }
-  }, [currentBatchIndex, step]); // eslint-disable-line
+  };
 
   const handleNextBatch = () => {
-    if (currentBatchIndex < FINGER_BATCHES.length - 1) setCurrentBatchIndex((i) => i + 1);
+    if (currentBatchIndex < FINGER_BATCHES.length - 1) {
+      handleBatchSelect(currentBatchIndex + 1);
+    }
   };
-  
+
   const handlePrevBatch = () => {
-    if (currentBatchIndex > 0) setCurrentBatchIndex((i) => i - 1);
+    if (currentBatchIndex > 0) {
+      handleBatchSelect(currentBatchIndex - 1);
+    }
   };
 
   const goToPersonalInfo = () => {
@@ -325,17 +295,16 @@ const FingerPrintCapture: React.FC = () => {
 
   const handleSubmitEnrollment = async () => {
     const fingerKeys: (keyof EnrollmentFormData)[] = [
-      "right_thumb","right_index","right_middle","right_ring","right_little",
-      "left_thumb","left_index","left_middle","left_ring","left_little",
+      "left_four", "right_four", "thumbs",
     ];
-    
+
     const missing = fingerKeys.find((k) => !form[k]);
     if (missing) {
       alert(`Missing fingerprint: ${String(missing).replaceAll("_", " ")}`);
       setStep(Step.Fingerprints);
       return;
     }
-    
+
     if (!form.face_image) {
       alert("Please capture face image");
       setStep(Step.Face);
@@ -354,19 +323,16 @@ const FingerPrintCapture: React.FC = () => {
       ] as (keyof EnrollmentFormData)[]).forEach((k) => {
         fd.append(k, String(form[k] ?? ""));
       });
-      
+
       fd.append("height", String(Number(form.height || 0)));
 
-      ([
-        "face_image",
-        "right_thumb","right_index","right_middle","right_ring","right_little",
-        "left_thumb","left_index","left_middle","left_ring","left_little",
-      ] as (keyof EnrollmentFormData)[]).forEach((k) => {
+      // Append biometric files
+      (["face_image", "left_four", "right_four", "thumbs"] as (keyof EnrollmentFormData)[]).forEach((k) => {
         const f = form[k] as unknown as File | null;
         if (f) fd.append(k, f, f.name || `${String(k)}.png`);
       });
 
-      const resp = await fetch(`${API_URL}/enroll`, {
+      const resp = await fetch(`${API_URL}/api/enrollment/enroll`, {
         method: "POST",
         body: fd,
       });
@@ -426,7 +392,7 @@ const FingerPrintCapture: React.FC = () => {
                   {FINGER_BATCHES.map((batch, index) => (
                     <button
                       key={batch.id}
-                      onClick={() => setCurrentBatchIndex(index)}
+                      onClick={() => handleBatchSelect(index)}
                       className={`flex w-full items-start justify-between rounded-lg p-4 transition-all ${
                         currentBatchIndex === index
                           ? "border-2 border-green-600 bg-green-50"
@@ -565,16 +531,9 @@ const FingerPrintCapture: React.FC = () => {
                             setCurrentBatchIndex(0);
                             setForm((f) => ({
                               ...f,
-                              right_thumb: null,
-                              right_index: null,
-                              right_middle: null,
-                              right_ring: null,
-                              right_little: null,
-                              left_thumb: null,
-                              left_index: null,
-                              left_middle: null,
-                              left_ring: null,
-                              left_little: null,
+                              left_four: null,
+                              right_four: null,
+                              thumbs: null,
                             }));
                           }}
                           className="px-4 py-2 text-sm text-gray-600 underline hover:text-gray-800"
