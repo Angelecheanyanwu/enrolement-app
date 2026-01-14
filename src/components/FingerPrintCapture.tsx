@@ -1,11 +1,11 @@
 "use client";
-import React, { useMemo, useState } from "react";
-import { X, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
-import { PiFingerprintBold } from "react-icons/pi";
-import Header from "./Header";
-import FaceCapture from "./FaceCapture";
 import type { EnrollmentFormData } from "@/utils/types";
+import { ArrowLeft, ArrowRight, CheckCircle, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { PiFingerprintBold } from "react-icons/pi";
+import FaceCapture from "./FaceCapture";
 import Form from "./Form";
+import Header from "./Header";
 const FINGER_BATCHES = [
   {
     id: "right_four",
@@ -370,7 +370,7 @@ const FingerPrintCapture: React.FC = () => {
         if (f) fd.append(k, f, f.name || `${String(k)}.png`);
       });
 
-      const resp = await fetch(`${API_URL}/api/enrollment/enroll`, {
+      const resp = await fetch(`${API_URL}/enroll`, {
         method: "POST",
         body: fd,
       });
@@ -715,7 +715,7 @@ const FingerPrintCapture: React.FC = () => {
                         );
 
                       const resp = await fetch(
-                        `${API_URL}/api/enrollment/enroll`,
+                        `${API_URL}/enroll`,
                         {
                           method: "POST",
                           body: fd,
