@@ -4,9 +4,10 @@ import { Fingerprint } from "lucide-react";
 interface HeaderProps {
   currentStep: number;
   totalSteps: number;
+  completedSteps?: number[];
 }
 
-const Header: React.FC<HeaderProps> = ({ currentStep, totalSteps }) => {
+const Header: React.FC<HeaderProps> = ({ currentStep, totalSteps, completedSteps = [] }) => {
   const steps = [
     { number: 1, name: "Fingerprint Capture" },
     { number: 2, name: "Personal Information" },
@@ -26,40 +27,47 @@ const Header: React.FC<HeaderProps> = ({ currentStep, totalSteps }) => {
         </div>
 
         <div className="flex items-center justify-between">
-          {steps.map((step, index) => (
-            <React.Fragment key={step.number}>
-              <div className="flex flex-1 flex-col items-center">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                    currentStep > step.number
-                      ? "bg-green-600 text-white"
-                      : currentStep === step.number
-                      ? "bg-red-300 text-white"
-                      : "bg-gray-300 text-gray-600"
-                  }`}
-                >
-                  {currentStep > step.number ? "✓" : step.number}
-                </div>
-                <span
-                  className={`mt-2 text-center text-xs ${
-                    currentStep === step.number
-                      ? "font-semibold text-red-300"
-                      : "text-gray-600"
-                  }`}
-                >
-                  {step.name}
-                </span>
-              </div>
+          {steps.map((step, index) => {
+            const isCompleted = completedSteps.includes(step.number);
+            const isActive = currentStep === step.number;
+            const isPast = currentStep > step.number;
 
-              {index < steps.length - 1 && (
-                <div
-                  className={`mx-1 h-1 flex-1 ${
-                    currentStep > step.number ? "bg-green-600" : "bg-gray-300"
-                  } -mt-4`}
-                />
-              )}
-            </React.Fragment>
-          ))}
+            const showCompleted = isCompleted || isPast;
+
+            return (
+              <React.Fragment key={step.number}>
+                <div className="flex flex-1 flex-col items-center">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                      showCompleted
+                        ? "bg-green-600 text-white"
+                        : isActive
+                        ? "bg-red-300 text-white"
+                        : "bg-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {showCompleted ? "✓" : step.number}
+                  </div>
+
+                  <span
+                    className={`mt-2 text-center text-xs ${
+                      isActive ? "font-semibold text-red-300" : "text-gray-600"
+                    }`}
+                  >
+                    {step.name}
+                  </span>
+                </div>
+
+                {index < steps.length - 1 && (
+                  <div
+                    className={`mx-1 h-1 flex-1 -mt-4 ${
+                      showCompleted ? "bg-green-600" : "bg-gray-300"
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </header>

@@ -27,19 +27,19 @@ const FINGER_BATCHES = [
     id: "left_four",
     name: "Left Four Fingers",
     hand: "left",
-    instruction: "Place your LEFT Index, Middle, Ring, and Pinky fingers on the scanner",
-    fingers: ["L2", "L3", "L4", "L5"],
-    fingerNames: ["Index", "Middle", "Ring", "Pinky"],
-    fullNames: ["Left Index", "Left Middle", "Left Ring", "Left Pinky"],
+    instruction: "Place your LEFT Pinky, Middle, Ring, and Index fingers on the scanner",
+    fingers: ["L5", "L4", "L3", "L2"],
+    fingerNames: ["Pinky", "Ring", "Middle", "Index"],
+    fullNames: ["Left Pinky", "Left Ring", "Left Middle", "Left Index"],
   },
   {
     id: "thumbs",
     name: "Both Thumbs",
     hand: "both",
     instruction: "Place BOTH thumbs on the scanner",
-    fingers: ["R1", "L1"],
-    fingerNames: ["Right Thumb", "Left Thumb"],
-    fullNames: ["Right Thumb", "Left Thumb"],
+    fingers: ["L1", "R1"],
+    fingerNames: ["Left Thumb", "Right Thumb"],
+    fullNames: ["Left Thumb", "Right Thumb"],
   },
 ] as const;
 
@@ -151,6 +151,7 @@ const FingerPrintCapture: React.FC = () => {
   const fetchFingerprintBatch = async (batchId: BatchId) => {
     try {
       setIsCapturing(true);
+      setIsScanning(true);
       const endpoint = BATCH_ENDPOINT_MAP[batchId];
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
@@ -173,8 +174,6 @@ const FingerPrintCapture: React.FC = () => {
       } = await res.json();
 
       if (!data.success) throw new Error(data.message || "Fingerprint capture failed");
-
-      setIsScanning(true);
 
       setTimeout(() => {
         // Clean the base64 string - remove whitespace, newlines, and any prefix
@@ -523,7 +522,7 @@ const FingerPrintCapture: React.FC = () => {
                           <p className="text-green-400 font-semibold text-lg animate-pulse">Scanning...</p>
                         </div>
                       ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900">
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-200">
                           <div className="flex gap-4 mb-4">
                             {currentBatch.fingers.map((_, idx) => (
                               <PiFingerprintBold
