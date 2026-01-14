@@ -82,7 +82,6 @@ enum Step {
 
 const initialForm: EnrollmentFormData = {
   nin: "",
-  cidstr: "",
   title: "",
   surname: "",
   first_name: "",
@@ -269,7 +268,7 @@ const FingerPrintCapture: React.FC = () => {
   const validatePersonalInfo = () => {
     const e: Partial<Record<keyof EnrollmentFormData, string>> = {};
     const required: (keyof EnrollmentFormData)[] = [
-      "nin","cidstr","title","surname","first_name","middle_name",
+      "nin","title","surname","first_name","middle_name",
       "birth_date","birth_state","birth_lga","nationality","gender",
       "email_address","telephone_no","address_line_one","address_line_two",
       "r_lga","r_state","town",
@@ -316,7 +315,7 @@ const FingerPrintCapture: React.FC = () => {
       const fd = new FormData();
 
       ([
-        "nin","cidstr","title","surname","first_name","middle_name",
+        "nin","title","surname","first_name","middle_name",
         "birth_date","birth_state","birth_lga","nationality","gender",
         "email_address","telephone_no","address_line_one","address_line_two",
         "r_lga","r_state","town",
