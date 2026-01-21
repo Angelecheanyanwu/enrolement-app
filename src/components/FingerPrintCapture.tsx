@@ -1,11 +1,21 @@
 "use client";
+
 import type { EnrollmentFormData } from "@/utils/types";
-import { ArrowLeft, ArrowRight, CheckCircle, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle,
+  Home,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
 import { PiFingerprintBold } from "react-icons/pi";
 import FaceCapture from "./FaceCapture";
 import Form from "./Form";
 import Header from "./Header";
+
 const FINGER_BATCHES = [
   {
     id: "right_four",
@@ -63,15 +73,18 @@ function base64ToFile(
 ): File {
   let mime = fallbackType;
   let data = base64;
+
   if (base64.startsWith("data:")) {
     const [header, body] = base64.split(",");
     const m = header.match(/data:(.*?);base64/);
     if (m) mime = m[1];
     data = body;
   }
+
   const bin = atob(data);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
   return new File([bytes], fileName || `finger-${Date.now()}.png`, {
     type: mime,
   });
@@ -109,6 +122,8 @@ const initialForm: EnrollmentFormData = {
 };
 
 const FingerPrintCapture: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [step, setStep] = useState<Step>(Step.Fingerprints);
   const [currentBatchIndex, setCurrentBatchIndex] = useState<number>(0);
   const [capturedBatches, setCapturedBatches] = useState<
@@ -123,21 +138,32 @@ const FingerPrintCapture: React.FC = () => {
   >({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitDone, setSubmitDone] = useState<boolean>(false);
+
   const [sessionUserId] = useState<string>(
     () => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   );
 
   const currentBatch = FINGER_BATCHES[currentBatchIndex];
+
   const capturedCount = useMemo(
     () => Object.keys(capturedBatches).length,
     [capturedBatches]
   );
+
   const allBatchesCaptured = capturedCount === FINGER_BATCHES.length;
+
+  const pageTitle =
+    step === Step.Fingerprints
+      ? "Fingerprint Enrollment"
+      : step === Step.PersonalInfo
+      ? "Personal Information"
+      : "Face Capture";
 
   const fetchFingerprintBatch = async (batchId: BatchId) => {
     try {
       setIsCapturing(true);
       setIsScanning(true);
+
       const endpoint = BATCH_ENDPOINT_MAP[batchId];
       const res = await fetch(`${PY_URL}${endpoint}`, {
         method: "POST",
@@ -159,15 +185,14 @@ const FingerPrintCapture: React.FC = () => {
         user_id: string;
       } = await res.json();
 
-      if (!data.success)
+      if (!data.success) {
         throw new Error(data.message || "Fingerprint capture failed");
+      }
 
       setTimeout(() => {
-        // Clean the base64 string - remove whitespace, newlines, and any prefix
         let base64Data = data.slap_image_base64 || "";
         let mimeType = "image/png";
 
-        // If it already has a data URL prefix, extract mime type and base64 part
         if (base64Data.startsWith("data:")) {
           const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
@@ -176,26 +201,13 @@ const FingerPrintCapture: React.FC = () => {
           }
         }
 
-        // Remove any whitespace or newlines
         base64Data = base64Data.replace(/\s/g, "");
 
-        // Detect image format from base64 header bytes
-        // PNG starts with: iVBORw0KGgo (89 50 4E 47)
-        // BMP starts with: Qk (42 4D)
-        // JPEG starts with: /9j/ (FF D8 FF)
-        // GIF starts with: R0lGOD (47 49 46)
-        if (base64Data.startsWith("Qk")) {
-          mimeType = "image/bmp";
-        } else if (
-          base64Data.startsWith("/9j/") ||
-          base64Data.startsWith("/9k/")
-        ) {
+        if (base64Data.startsWith("Qk")) mimeType = "image/bmp";
+        else if (base64Data.startsWith("/9j/") || base64Data.startsWith("/9k/"))
           mimeType = "image/jpeg";
-        } else if (base64Data.startsWith("R0lGOD")) {
-          mimeType = "image/gif";
-        } else if (base64Data.startsWith("iVBORw")) {
-          mimeType = "image/png";
-        }
+        else if (base64Data.startsWith("R0lGOD")) mimeType = "image/gif";
+        else if (base64Data.startsWith("iVBORw")) mimeType = "image/png";
 
         const ext = mimeType.split("/")[1] || "png";
         const imageName = `${batchId}_${Date.now()}.${ext}`;
@@ -208,12 +220,11 @@ const FingerPrintCapture: React.FC = () => {
           [batchId]: {
             image: imageDataUrl,
             base64: base64Data,
-            imageName: imageName,
+            imageName,
             file,
           },
         }));
 
-        // Update form with batch file using batch ID as field name
         setForm((f) => ({ ...f, [batchId]: file }));
 
         setIsScanning(false);
@@ -223,6 +234,11 @@ const FingerPrintCapture: React.FC = () => {
       console.error("Error capturing fingerprint batch:", e);
       setIsCapturing(false);
       setIsScanning(false);
+      alert(
+        `Failed to scan fingerprint batch: ${
+          e instanceof Error ? e.message : "Unknown error"
+        }`
+      );
     }
   };
 
@@ -243,25 +259,15 @@ const FingerPrintCapture: React.FC = () => {
         return copy;
       });
 
-      // Clear the batch field in form
       setForm((f) => ({ ...f, [batchId]: null }));
     } catch (e) {
       console.error("Error deleting fingerprint batch:", e);
     }
   };
 
+  // ✅ NO AUTO-SCAN: selecting just changes stage
   const handleBatchSelect = (index: number) => {
-    const batch = FINGER_BATCHES[index];
     setCurrentBatchIndex(index);
-
-    // Only trigger capture if batch hasn't been captured yet and not currently capturing
-    if (
-      !capturedBatches[batch.id] &&
-      !isCapturing &&
-      step === Step.Fingerprints
-    ) {
-      void fetchFingerprintBatch(batch.id);
-    }
   };
 
   const handleNextBatch = () => {
@@ -351,21 +357,13 @@ const FingerPrintCapture: React.FC = () => {
           "r_state",
           "town",
         ] as (keyof EnrollmentFormData)[]
-      ).forEach((k) => {
-        fd.append(k, String(form[k] ?? ""));
-      });
+      ).forEach((k) => fd.append(k, String(form[k] ?? "")));
 
       fd.append("height", String(Number(form.height || 0)));
 
-      // Append biometric files
-      (
-        [
-          "face_image",
-          "left_four",
-          "right_four",
-          "thumbs",
-        ] as (keyof EnrollmentFormData)[]
-      ).forEach((k) => {
+      (["face_image", "left_four", "right_four", "thumbs"] as (
+        | keyof EnrollmentFormData
+      )[]).forEach((k) => {
         const f = form[k] as unknown as File | null;
         if (f) fd.append(k, f, f.name || `${String(k)}.png`);
       });
@@ -399,21 +397,23 @@ const FingerPrintCapture: React.FC = () => {
 
   if (submitDone) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
         <Header currentStep={4} totalSteps={3} completedSteps={[1, 2, 3]} />
-        <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center p-6">
-          <div className="w-full rounded-lg bg-white p-8 text-center shadow">
-            <h2 className="mb-2 text-2xl font-bold text-green-600">
-              Enrollment Complete!
-            </h2>
-            <p className="text-gray-600">All data submitted successfully.</p>
+        <main className="flex-1 grid place-items-center px-4 py-6">
+          <div className="w-full max-w-3xl">
+            <div className="w-full rounded-lg bg-white p-8 text-center shadow">
+              <h2 className="mb-2 text-2xl font-bold text-green-600">
+                Enrollment Complete!
+              </h2>
+              <p className="text-gray-600">All data submitted successfully.</p>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
-  const completedSteps = [];
+  const completedSteps: Step[] = [];
   if (step > Step.Fingerprints) completedSteps.push(Step.Fingerprints);
   if (step > Step.PersonalInfo) completedSteps.push(Step.PersonalInfo);
   if (step > Step.Face) completedSteps.push(Step.Face);
@@ -424,172 +424,200 @@ const FingerPrintCapture: React.FC = () => {
         currentStep={step}
         totalSteps={3}
         completedSteps={completedSteps}
+        pageTitle={pageTitle}
+        onMenuClick={() => setSidebarOpen(true)}
       />
 
-      <main className="flex-1 overflow-auto lg:overflow-hidden">
-        {step === Step.Fingerprints && (
-          <div className="mx-auto max-w-7xl p-4 md:p-6 lg:h-full">
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:h-full">
-              {/* Left panel - Batch List */}
-              <div className="min-h-[520px] rounded-lg bg-white p-6 shadow-lg overflow-visible lg:overflow-hidden flex flex-col lg:h-full">
-                <div className="mb-3 flex items-center justify-between shrink-0">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Capture Stages
-                  </h3>
-                  <div className="rounded-full bg-white px-4 py-1.5 shadow">
-                    <span className="text-xs font-medium text-gray-700">
-                      {capturedCount}/{FINGER_BATCHES.length} Complete
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex-1 pr-1 space-y-3 overflow-visible lg:overflow-y-auto">
-                  {FINGER_BATCHES.map((batch, index) => (
-                    <button
-                      key={batch.id}
-                      onClick={() => handleBatchSelect(index)}
-                      className={`flex w-full items-start justify-between rounded-lg p-4 transition-all ${
-                        currentBatchIndex === index
-                          ? "border-2 border-green-600 bg-green-50"
-                          : "border-2 border-transparent bg-gray-50 hover:bg-gray-100"
-                      }`}
-                      aria-current={currentBatchIndex === index}
-                    >
-                      <div className="flex items-start gap-3 flex-1">
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                            capturedBatches[batch.id]
-                              ? "bg-green-600"
-                              : "bg-gray-300"
-                          }`}
-                        >
-                          {capturedBatches[batch.id] ? (
-                            <CheckCircle className="h-6 w-6 text-white" />
-                          ) : (
-                            <span className="text-sm font-bold text-white">
-                              {index + 1}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-left flex-1">
-                          <p className="text-sm font-semibold text-gray-800 mb-1">
-                            {batch.name}
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {batch.fingerNames.map((name, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs bg-blue-100 text-navy-blue px-2 py-0.5 rounded"
-                              >
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right panel - Capture Area */}
-              <div className="rounded-lg bg-white p-6 shadow-lg lg:col-span-2 flex flex-col lg:h-full">
-                <div className="mb-4">
-                  <h2 className="mb-2 text-2xl font-bold text-gray-800">
-                    {currentBatch.name}
-                  </h2>
-                  <p className="text-gray-600 mb-3">
-                    {capturedBatches[currentBatch.id]
-                      ? "Fingerprints captured successfully. You can recapture or proceed to the next stage."
-                      : currentBatch.instruction}
-                  </p>
-
-                  {/* Visual finger indicators */}
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    {currentBatch.hand === "both" ? (
-                      <></>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1"></div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Capture box */}
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="relative">
-                    <div className="w-[400px] max-w-[90vw] overflow-hidden rounded-2xl border-4 border-green-600 bg-gray-900 h-[480px] lg:h-[56vh] lg:max-h-[32rem] shadow-xl">
-                      {capturedBatches[currentBatch.id] && !isScanning ? (
-                        <div className="relative h-full w-full flex items-center justify-center bg-gray-900 p-2">
-                          <img
-                            src={capturedBatches[currentBatch.id]!.image}
-                            alt={currentBatch.name}
-                            className="max-h-full max-w-full object-contain rounded-lg"
-                          />
-                          <button
-                            onClick={() =>
-                              deleteFingerprintBatch(currentBatch.id)
-                            }
-                            className="absolute right-2 top-2 rounded-full bg-red-500 p-2.5 shadow-lg transition-all hover:bg-red-600 hover:scale-110"
-                            aria-label="Delete fingerprints"
-                          >
-                            <X className="h-5 w-5 text-white" />
-                          </button>
-                        </div>
-                      ) : isScanning ? (
-                        <div className="relative flex h-full w-full flex-col items-center justify-center bg-gray-900">
-                          <div className="animate-scan absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
-                          <div className="flex gap-4 mb-4">
-                            {currentBatch.fingers.map((_, idx) => (
-                              <PiFingerprintBold
-                                key={idx}
-                                className="h-16 w-16 animate-pulse text-green-500 drop-shadow-lg"
-                                style={{ animationDelay: `${idx * 0.15}s` }}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-green-400 font-semibold text-lg animate-pulse">
-                            Scanning...
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-200">
-                          <div className="flex gap-4 mb-4">
-                            {currentBatch.fingers.map((_, idx) => (
-                              <PiFingerprintBold
-                                key={idx}
-                                className="h-20 w-20 text-gray-600"
-                              />
-                            ))}
-                          </div>
-                          <p className="text-gray-500 text-sm">
-                            Waiting for scanner...
-                          </p>
-                        </div>
-                      )}
+      <main className="flex-1 grid place-items-center px-4 py-6 overflow-auto">
+        <div className="w-full">
+          {step === Step.Fingerprints && (
+            <div className="w-full max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+                {/* LEFT: stages */}
+                <div className="rounded-lg bg-white p-4 sm:p-5 lg:p-6 shadow-lg overflow-visible lg:overflow-hidden flex flex-col lg:h-full">
+                  <div className="mb-3 flex items-center justify-between shrink-0 gap-2">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-800">
+                      Capture Stages
+                    </h3>
+                    <div className="rounded-full bg-white px-3 sm:px-4 py-1 shadow">
+                      <span className="text-[11px] sm:text-xs font-medium text-gray-700">
+                        {capturedCount}/{FINGER_BATCHES.length} Complete
+                      </span>
                     </div>
                   </div>
+
+                  <div className="flex-1 pr-1 space-y-3 overflow-visible lg:overflow-y-auto">
+                    {FINGER_BATCHES.map((batch, index) => (
+                      <button
+                        key={batch.id}
+                        onClick={() => handleBatchSelect(index)}
+                        className={`flex w-full items-start justify-between rounded-lg p-3 sm:p-4 transition-all ${
+                          currentBatchIndex === index
+                            ? "border-2 border-green-600 bg-green-50"
+                            : "border-2 border-transparent bg-gray-50 hover:bg-gray-100"
+                        }`}
+                        aria-current={currentBatchIndex === index}
+                      >
+                        <div className="flex items-start gap-3 flex-1">
+                          <div
+                            className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full ${
+                              capturedBatches[batch.id]
+                                ? "bg-green-600"
+                                : "bg-gray-300"
+                            }`}
+                          >
+                            {capturedBatches[batch.id] ? (
+                              <CheckCircle className="h-6 w-6 text-white" />
+                            ) : (
+                              <span className="text-sm font-bold text-white">
+                                {index + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-left flex-1">
+                            <p className="text-[13px] sm:text-sm font-semibold text-gray-800 mb-1">
+                              {batch.name}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {batch.fingerNames.map((name, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-[10px] sm:text-xs bg-blue-100 text-navy-blue px-2 py-0.5 rounded"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="mt-6 md:mt-8 pt-4 flex items-start justify-between gap-4">
-                  <button
-                    onClick={handlePrevBatch}
-                    disabled={currentBatchIndex === 0}
-                    className="flex items-center gap-2 rounded-lg bg-gray-200 px-5 py-3 text-gray-800 font-medium transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Previous
-                  </button>
+                {/* RIGHT: scanner */}
+                <div className="rounded-lg bg-white p-4 sm:p-5 lg:p-6 shadow-lg lg:col-span-2 flex flex-col">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="mb-2 text-lg sm:text-xl font-bold text-gray-800">
+                        {currentBatch.name}
+                      </h2>
+                      <p className="text-sm sm:text-base text-gray-600 mb-3">
+                        {capturedBatches[currentBatch.id]
+                          ? "Fingerprints captured successfully. You can recapture or proceed to the next stage."
+                          : currentBatch.instruction}
+                      </p>
+                    </div>
 
-                  <div className="flex flex-col items-center gap-2">
                     {capturedBatches[currentBatch.id] && (
-                      <>
+                      <div className="rounded-full bg-green-100 px-4 py-1 shadow shrink-0">
+                        <span className="text-xs font-medium text-green-700 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          Captured
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="relative w-full flex justify-center">
+                      <div
+                        className="
+                          w-[92vw] sm:w-[420px] lg:w-[520px]
+                          max-w-full
+                          overflow-hidden rounded-2xl
+                          border-4 border-green-600 bg-gray-900
+                          h-[320px] sm:h-[420px] lg:h-[56vh] lg:max-h-[32rem]
+                          shadow-xl
+                        "
+                      >
+                        {capturedBatches[currentBatch.id] && !isScanning ? (
+                          <div className="relative h-full w-full flex items-center justify-center bg-gray-900 p-2">
+                            <img
+                              src={capturedBatches[currentBatch.id]!.image}
+                              alt={currentBatch.name}
+                              className="max-h-full max-w-full object-contain rounded-lg"
+                            />
+                            <button
+                              onClick={() =>
+                                deleteFingerprintBatch(currentBatch.id)
+                              }
+                              className="absolute right-2 top-2 rounded-full bg-red-500 p-2.5 shadow-lg transition-all hover:bg-red-600 hover:scale-110"
+                              aria-label="Delete fingerprints"
+                            >
+                              <X className="h-5 w-5 text-white" />
+                            </button>
+                          </div>
+                        ) : isScanning ? (
+                          <div className="relative flex h-full w-full flex-col items-center justify-center bg-gray-900">
+                            <div className="animate-scan absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
+                            <div className="flex gap-3 sm:gap-4 mb-4">
+                              {currentBatch.fingers.map((_, idx) => (
+                                <PiFingerprintBold
+                                  key={idx}
+                                  className="h-10 w-10 sm:h-14 sm:w-14 lg:h-16 lg:w-16 animate-pulse text-green-500 drop-shadow-lg"
+                                  style={{ animationDelay: `${idx * 0.15}s` }}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-green-400 font-semibold text-base sm:text-lg animate-pulse">
+                              Scanning...
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center bg-gray-200">
+                            <div className="flex gap-3 sm:gap-4 mb-4">
+                              {currentBatch.fingers.map((_, idx) => (
+                                <PiFingerprintBold
+                                  key={idx}
+                                  className="h-12 w-12 sm:h-16 sm:w-16 lg:h-20 lg:w-20 text-gray-600"
+                                />
+                              ))}
+                            </div>
+                            <p className="text-gray-500 text-xs sm:text-sm">
+                              Waiting for scanner...
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ✅ Start button ONLY before capture */}
+                  {!capturedBatches[currentBatch.id] && (
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        onClick={() => fetchFingerprintBatch(currentBatch.id)}
+                        disabled={isCapturing || isScanning}
+                        className="rounded-lg bg-green-600 px-8 py-3 text-xs sm:text-sm text-white font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isCapturing || isScanning ? "Scanning..." : "Start"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ✅ Navigation buttons ONLY after capture */}
+                  {capturedBatches[currentBatch.id] && (
+                    <div className="mt-4 sm:mt-6 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                      <button
+                        onClick={handlePrevBatch}
+                        disabled={currentBatchIndex === 0}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 sm:px-5 py-2.5 sm:py-3 text-gray-800 font-medium transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Previous
+                      </button>
+
+                      <div className="w-full sm:w-auto flex flex-col items-center gap-2">
                         <button
                           onClick={() => fetchFingerprintBatch(currentBatch.id)}
-                          disabled={isCapturing}
-                          className="rounded-lg bg-yellow-500 px-6 py-3 font-medium text-white transition-colors hover:bg-yellow-600 disabled:opacity-50"
+                          disabled={isCapturing || isScanning}
+                          className="w-full sm:w-auto rounded-lg bg-yellow-500 px-5 sm:px-6 py-2.5 sm:py-3 font-medium text-white transition-colors hover:bg-yellow-600 disabled:opacity-50"
                         >
                           Recapture
                         </button>
+
                         <button
                           type="button"
                           onClick={() => {
@@ -606,150 +634,188 @@ const FingerPrintCapture: React.FC = () => {
                         >
                           Reset All Captures
                         </button>
-                      </>
-                    )}
-                  </div>
+                      </div>
 
-                  {currentBatchIndex < FINGER_BATCHES.length - 1 ? (
-                    <button
-                      onClick={handleNextBatch}
-                      disabled={!capturedBatches[currentBatch.id]}
-                      className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Next
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={goToPersonalInfo}
-                      disabled={!allBatchesCaptured}
-                      className="rounded-lg bg-green-600 px-8 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Next
-                    </button>
+                      {currentBatchIndex < FINGER_BATCHES.length - 1 ? (
+                        <button
+                          onClick={handleNextBatch}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 sm:px-6 py-2.5 sm:py-3 font-semibold text-white transition-colors hover:bg-green-700"
+                        >
+                          Next
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={goToPersonalInfo}
+                          disabled={!allBatchesCaptured}
+                          className="w-full sm:w-auto rounded-lg bg-green-600 px-6 sm:px-8 py-2.5 sm:py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {step === Step.PersonalInfo && (
-          <Form
-            form={form}
-            errors={errors}
-            setForm={setForm}
-            onBack={goBackToFingerprints}
-            onSubmit={goToFace}
-          />
-        )}
-
-        {step === Step.Face && (
-          <div className="mx-auto max-w-5xl p-4 md:p-6">
-            <div className="rounded-lg bg-white p-6 shadow">
-              <FaceCapture
-                isSubmitting={isSubmitting}
-                onBack={() => setStep(Step.PersonalInfo)}
-                onComplete={(file) => {
-                  // Submit immediately with face image
-                  setIsSubmitting(true);
-                  (async () => {
-                    try {
-                      const fd = new FormData();
-
-                      (
-                        [
-                          "nin",
-                          "title",
-                          "surname",
-                          "first_name",
-                          "middle_name",
-                          "birth_date",
-                          "birth_state",
-                          "birth_lga",
-                          "nationality",
-                          "gender",
-                          "email_address",
-                          "telephone_no",
-                          "address_line_one",
-                          "address_line_two",
-                          "r_lga",
-                          "r_state",
-                          "town",
-                        ] as (keyof EnrollmentFormData)[]
-                      ).forEach((k) => {
-                        fd.append(k, String(form[k] ?? ""));
-                      });
-
-                      fd.append("height", String(Number(form.height || 0)));
-
-                      // Append face image
-                      if (file)
-                        fd.append("face_image", file, file.name || "face.png");
-
-                      // Append fingerprint files
-                      const leftFourFile =
-                        form.left_four as unknown as File | null;
-                      if (leftFourFile)
-                        fd.append(
-                          "left_four",
-                          leftFourFile,
-                          leftFourFile.name || "left_four.png"
-                        );
-
-                      const rightFourFile =
-                        form.right_four as unknown as File | null;
-                      if (rightFourFile)
-                        fd.append(
-                          "right_four",
-                          rightFourFile,
-                          rightFourFile.name || "right_four.png"
-                        );
-
-                      const thumbsFile = form.thumbs as unknown as File | null;
-                      if (thumbsFile)
-                        fd.append(
-                          "thumbs",
-                          thumbsFile,
-                          thumbsFile.name || "thumbs.png"
-                        );
-
-                      const resp = await fetch(
-                        `${API_URL}/enroll`,
-                        {
-                          method: "POST",
-                          body: fd,
-                        }
-                      );
-
-                      if (!resp.ok) {
-                        let msg = `HTTP ${resp.status}`;
-                        try {
-                          const data = await resp.json();
-                          msg = (data?.message ||
-                            data?.detail ||
-                            msg) as string;
-                        } catch {}
-                        throw new Error(msg);
-                      }
-
-                      setSubmitDone(true);
-                    } catch (err) {
-                      console.error("Enrollment failed:", err);
-                      alert(
-                        `Failed to submit enrollment: ${
-                          err instanceof Error ? err.message : "Unknown error"
-                        }`
-                      );
-                      setIsSubmitting(false);
-                    }
-                  })();
-                }}
+          {step === Step.PersonalInfo && (
+            <div className="w-full max-w-5xl mx-auto">
+              <Form
+                form={form}
+                errors={errors}
+                setForm={setForm}
+                onBack={goBackToFingerprints}
+                onSubmit={goToFace}
               />
             </div>
-          </div>
-        )}
+          )}
+
+          {step === Step.Face && (
+            <div className="w-full max-w-5xl mx-auto p-4 md:p-6">
+              <div className="rounded-lg bg-white p-6 shadow">
+                <FaceCapture
+                  isSubmitting={isSubmitting}
+                  onBack={() => setStep(Step.PersonalInfo)}
+                  onComplete={(file) => {
+                    setIsSubmitting(true);
+                    (async () => {
+                      try {
+                        const fd = new FormData();
+
+                        (
+                          [
+                            "nin",
+                            "title",
+                            "surname",
+                            "first_name",
+                            "middle_name",
+                            "birth_date",
+                            "birth_state",
+                            "birth_lga",
+                            "nationality",
+                            "gender",
+                            "email_address",
+                            "telephone_no",
+                            "address_line_one",
+                            "address_line_two",
+                            "r_lga",
+                            "r_state",
+                            "town",
+                          ] as (keyof EnrollmentFormData)[]
+                        ).forEach((k) => fd.append(k, String(form[k] ?? "")));
+
+                        fd.append("height", String(Number(form.height || 0)));
+
+                        if (file)
+                          fd.append(
+                            "face_image",
+                            file,
+                            file.name || "face.png"
+                          );
+
+                        const leftFourFile =
+                          form.left_four as unknown as File | null;
+                        if (leftFourFile)
+                          fd.append(
+                            "left_four",
+                            leftFourFile,
+                            leftFourFile.name || "left_four.png"
+                          );
+
+                        const rightFourFile =
+                          form.right_four as unknown as File | null;
+                        if (rightFourFile)
+                          fd.append(
+                            "right_four",
+                            rightFourFile,
+                            rightFourFile.name || "right_four.png"
+                          );
+
+                        const thumbsFile =
+                          form.thumbs as unknown as File | null;
+                        if (thumbsFile)
+                          fd.append(
+                            "thumbs",
+                            thumbsFile,
+                            thumbsFile.name || "thumbs.png"
+                          );
+
+                        const resp = await fetch(`${API_URL}/enroll`, {
+                          method: "POST",
+                          body: fd,
+                        });
+
+                        if (!resp.ok) {
+                          let msg = `HTTP ${resp.status}`;
+                          try {
+                            const data = await resp.json();
+                            msg = (data?.message || data?.detail || msg) as string;
+                          } catch {}
+                          throw new Error(msg);
+                        }
+
+                        setSubmitDone(true);
+                      } catch (err) {
+                        console.error("Enrollment failed:", err);
+                        alert(
+                          `Failed to submit enrollment: ${
+                            err instanceof Error ? err.message : "Unknown error"
+                          }`
+                        );
+                        setIsSubmitting(false);
+                      }
+                    })();
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </main>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-[80]">
+          <button
+            className="absolute inset-0 bg-black/30"
+            aria-label="Close menu"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
+              <p className="text-sm font-semibold text-gray-800">Menu</p>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-lg p-2 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5 text-gray-700" />
+              </button>
+            </div>
+
+            <nav className="p-3 space-y-1">
+              <Link
+                href="/"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Home className="h-5 w-5" />
+                Home
+              </Link>
+
+              <Link
+                href="/verify"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <ShieldCheck className="h-5 w-5" />
+                Verification
+              </Link>
+            </nav>
+          </div>
+        </div>
+      )}
 
       {isSubmitting && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/20 backdrop-blur-sm">

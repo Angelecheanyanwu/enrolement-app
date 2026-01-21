@@ -1,73 +1,68 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Fingerprint } from "lucide-react";
 
 interface HeaderProps {
   currentStep: number;
   totalSteps: number;
   completedSteps?: number[];
+  pageTitle?: string;
+  onMenuClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentStep, totalSteps, completedSteps = [] }) => {
-  const steps = [
-    { number: 1, name: "Fingerprint Capture" },
-    { number: 2, name: "Personal Information" },
-    { number: 3, name: "Face Capture" },
-  ];
+const Header: React.FC<HeaderProps> = ({
+  currentStep,
+  totalSteps,
+  completedSteps = [],
+  pageTitle,
+  onMenuClick,
+}) => {
+  const [isVerification, setIsVerification] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsVerification(window.location.pathname === "/verify");
+  }, []);
+
+  const goTo = (to: string) => {
+    if (typeof window === "undefined") return;
+    window.location.href = to;
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-md">
       <div className="mx-auto max-w-7xl px-4 py-3">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Fingerprint className="h-7 w-7 text-green-600" />
-            <h1 className="text-2xl font-bold leading-tight text-gray-800 md:text-3xl">
-              Enrollment System
-            </h1>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between">
-          {steps.map((step, index) => {
-            const isCompleted = completedSteps.includes(step.number);
-            const isActive = currentStep === step.number;
-            const isPast = currentStep > step.number;
+          <div className="flex items-center gap-2">
+            <div className="bg-green-600 p-2 rounded-lg">
+              <Fingerprint className="h-7 w-7 text-white" />
+            </div>
 
-            const showCompleted = isCompleted || isPast;
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {isVerification ? "Verification System" : "Enrollment System"}
+              </h1>
+              <p className="text-sm text-gray-600">
+                {isVerification
+                  ? "Verify identity securely"
+                  : "Three Steps to Enroll"}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => goTo("/")}
+              className="rounded-md border border-gray-300 bg-white px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Home
+            </button>
 
-            return (
-              <React.Fragment key={step.number}>
-                <div className="flex flex-1 flex-col items-center">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                      showCompleted
-                        ? "bg-green-600 text-white"
-                        : isActive
-                        ? "bg-red-300 text-white"
-                        : "bg-gray-300 text-gray-600"
-                    }`}
-                  >
-                    {showCompleted ? "✓" : step.number}
-                  </div>
-
-                  <span
-                    className={`mt-2 text-center text-xs ${
-                      isActive ? "font-semibold text-red-300" : "text-gray-600"
-                    }`}
-                  >
-                    {step.name}
-                  </span>
-                </div>
-
-                {index < steps.length - 1 && (
-                  <div
-                    className={`mx-1 h-1 flex-1 -mt-4 ${
-                      showCompleted ? "bg-green-600" : "bg-gray-300"
-                    }`}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
+            <button
+              onClick={() => goTo(isVerification ? "/enroll" : "/verify")}
+              className="rounded-md bg-green-600 px-2 sm:px-3 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-green-700 transition-colors"
+            >
+              {isVerification ? "Enroll" : "Verify"}
+            </button>
+          </div>
         </div>
       </div>
     </header>

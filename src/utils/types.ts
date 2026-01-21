@@ -1,5 +1,4 @@
-export interface User {
-    firstName: string;
+export interface User {    firstName: string;
     lastName: string;
     email: string;
     phoneNumber: string;
@@ -31,4 +30,19 @@ export interface EnrollmentFormData {
   left_four: File | null;
   right_four: File | null;
   thumbs: File | null;
+  
+}
+
+export interface VerificationData{
+  nin: string;
+  right_thumb: File | null;
+  right_index: File | null;
+  right_middle: File | null;
+  right_ring: File | null;
+  right_little: File | null;
+  left_thumb: File | null;
+  left_index: File | null;
+  left_middle: File | null;
+  left_ring: File | null;
+  left_little: File | null;
 }
