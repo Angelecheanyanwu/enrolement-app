@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+
+import React, { useMemo, useState } from "react";
 import { Fingerprint as FingerprintIcon, X } from "lucide-react";
 import Header from "./Header";
-import NinModal from "./modals/Ninmodal";
 import VerificationResult from "./VerificationResult";
 import type { EnrollmentFormData } from "@/utils/types";
 import { FaCheck } from "react-icons/fa";
@@ -50,8 +50,7 @@ function base64ToFile(
   });
 }
 
-const initialForm: VerificationData= {
-  nin: "",
+const initialForm: VerificationData = {
   right_thumb: null,
   right_index: null,
   right_middle: null,
@@ -65,7 +64,7 @@ const initialForm: VerificationData= {
 };
 
 const VerifyCapture: React.FC = () => {
-  const [currentFingerIndex] = useState<number>(0); 
+  const [currentFingerIndex] = useState<number>(0);
   const [capturedFingers, setCapturedFingers] = useState<
     Partial<Record<FingerId, FingerprintData>>
   >({});
@@ -126,6 +125,9 @@ const VerifyCapture: React.FC = () => {
 
         setIsScanning(false);
         setIsCapturing(false);
+
+        // ✅ CHANGE: DO NOT auto-submit after capture.
+        // User should see fingerprint and optionally Recapture before clicking Verify.
       }, 2000);
     } catch (e) {
       console.error("Error capturing fingerprint:", e);
@@ -188,18 +190,21 @@ const VerifyCapture: React.FC = () => {
     }
   };
 
-  const handleSubmitEnrollment = async (nin: string) => {
-    const fp = form.right_thumb;
+  const handleSubmitEnrollment = async () => {
+    // ✅ More reliable: if form.right_thumb hasn't updated yet, read from capturedFingers
+    const fp =
+      form.right_thumb ?? capturedFingers[currentFinger.id]?.file ?? null;
+
     if (!fp) {
       alert("No fingerprint captured. Please scan again.");
-      setShowModal(false);
       return;
     }
 
     setIsSubmitting(true);
+    setError("");
+
     try {
       const fd = new FormData();
-      fd.append("nin", nin);
       fd.append("fingerprint_image", fp, fp.name || "right_thumb.png");
 
       const resp = await fetch(`${API_URL}/verify/fingerprint`, {
@@ -215,13 +220,11 @@ const VerifyCapture: React.FC = () => {
         } catch {}
         throw new Error(msg);
       }
+
       const responseData = await resp.json();
-      console.log("Backend response:", responseData);
       setVerifiedData(responseData);
       setSubmitDone(true);
-      setShowModal(false);
     } catch (err) {
-      console.error("Verify/submit failed:", err);
       setError(
         `Failed: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
@@ -235,39 +238,39 @@ const VerifyCapture: React.FC = () => {
   }
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
-    <Header currentStep={4} totalSteps={3} completedSteps={[1, 2, 3]} />
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
+      <Header currentStep={4} totalSteps={3} completedSteps={[1, 2, 3]} />
 
-    <main className="flex-1 grid place-items-center px-4 py-6">
-      <div className="w-full max-w-4xl">
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex-1 text-left">
-              <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
-                Place a Finger on the Scanner
-              </h2>
-              <p className="text-gray-600 text-xs sm:text-sm md:text-base">
-                {isCaptured
-                  ? "Fingerprint captured. Proceed to enter NIN."
-                  : "Click Start to begin scanning your fingerprint."}
-              </p>
-              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      <main className="flex-1 grid place-items-center px-4 py-6">
+        <div className="w-full max-w-4xl">
+          <div className="rounded-lg bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex-1 text-left">
+                <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
+                  Place a Finger on the Scanner
+                </h2>
+                <p className="text-gray-600 text-xs sm:text-sm md:text-base">
+                  {isCaptured
+                    ? "Fingerprint captured. Proceed to enter NIN."
+                    : "Click Start to begin scanning your fingerprint."}
+                </p>
+                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+              </div>
+
+              {isCaptured && (
+                <div className="rounded-full bg-green-100 px-6 py-2 shadow ml-4 flex-shrink-0">
+                  <span className="text-xs sm:text-sm font-medium text-green-700 flex items-center gap-2">
+                    <FaCheck />
+                    Captured
+                  </span>
+                </div>
+              )}
             </div>
 
-            {isCaptured && (
-              <div className="rounded-full bg-green-100 px-6 py-2 shadow ml-4 flex-shrink-0">
-                <span className="text-xs sm:text-sm font-medium text-green-700 flex items-center gap-2">
-                  <FaCheck />
-                  Captured
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-center">
-            <div className="relative">
-              <div
-                className="
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <div
+                  className="
                   w-40 h-[260px]
                   sm:w-48 sm:h-[320px]
                   md:w-56 md:h-[380px]
@@ -277,79 +280,75 @@ const VerifyCapture: React.FC = () => {
                   border-4 border-gray-300
                   bg-gray-50
                 "
-              >
-                {isCaptured && !isScanning ? (
-                  <img
-                    src={capturedFingers[currentFinger.id]!.image}
-                    alt={currentFinger.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : isScanning ? (
-                  <div className="relative flex h-full w-full items-center justify-center bg-green-500/50">
-                    <div className="animate-scan absolute left-0 right-0 h-1 bg-green-600" />
-                    <FingerprintIcon className="h-32 w-32 animate-pulse text-white" />
-                  </div>
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <FingerprintIcon className="h-32 w-32 text-gray-300" />
-                  </div>
-                )}
+                >
+                  {isCaptured && !isScanning ? (
+                    <img
+                      src={capturedFingers[currentFinger.id]!.image}
+                      alt={currentFinger.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : isScanning ? (
+                    <div className="relative flex h-full w-full items-center justify-center bg-green-500/50">
+                      <div className="animate-scan absolute left-0 right-0 h-1 bg-green-600" />
+                      <FingerprintIcon className="h-32 w-32 animate-pulse text-white" />
+                    </div>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <FingerprintIcon className="h-32 w-32 text-gray-300" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 flex justify-center">
-            {!isCaptured && (
-              <button
-                onClick={() => fetchFingerprint(currentFinger.id)}
-                disabled={isCapturing || isScanning}
-                className="rounded-lg bg-green-600 px-8 py-3 text-xs sm:text-sm text-white font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
-              >
-                {isCapturing ? "Scanning..." : "Start"}
-              </button>
-            )}
-          </div>
-
-          <div className="mt-2 flex gap-4 items-center justify-center">
-            {isCaptured && (
-              <>
+            <div className="mt-6 flex justify-center">
+              {!isCaptured && (
                 <button
-                  onClick={() => resetForRecapture(currentFinger.id)}
+                  onClick={() => fetchFingerprint(currentFinger.id)}
                   disabled={isCapturing || isScanning}
-                  className="rounded-md border border-gray-300 bg-white px-6 py-4 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="rounded-lg bg-green-600 px-8 py-3 text-xs sm:text-sm text-white font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
                 >
-                  Recapture
+                  {isCapturing ? "Scanning..." : "Start"}
                 </button>
+              )}
+            </div>
 
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="rounded-md bg-green-600 px-6 py-4 text-xs sm:text-sm font-semibold text-white hover:bg-green-700 transition-colors"
-                >
-                  Enter NIN
-                </button>
-              </>
-            )}
+            <div className="mt-2 flex gap-4 items-center justify-center">
+              {isCaptured && (
+                <>
+                  <button
+                    onClick={() => resetForRecapture(currentFinger.id)}
+                    disabled={isCapturing || isScanning}
+                    className="rounded-md border border-gray-300 bg-white px-6 py-4 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Recapture
+                  </button>
+                  <button
+                    onClick={handleSubmitEnrollment}
+                    disabled={
+                      isSubmitting || isScanning || isCapturing || !isCaptured
+                    }
+                    className="rounded-md bg-green-600 px-6 py-4 text-xs sm:text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Verifying..." : "Verify"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
 
-    <NinModal
-      open={showModal}
-      onClose={() => setShowModal(false)}
-      onSubmit={handleSubmitEnrollment}
-      loading={isSubmitting}
-    />
-    {isSubmitting && (
-      <div className="fixed inset-0 z-[80] grid place-items-center bg-white/100 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-6 shadow-lg">
-          <Loader />
-          <p className="text-sm text-gray-600">Submitting…</p>
+      {isSubmitting && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-white/100 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-6 shadow-lg">
+            <Loader />
+            <p className="text-sm text-gray-600">Submitting…</p>
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    <style>{`
+      <style>{`
       @keyframes scan {
         0% { top: 0; }
         50% { top: calc(100% - 4px); }
@@ -357,10 +356,8 @@ const VerifyCapture: React.FC = () => {
       }
       .animate-scan { animation: scan 2s ease-in-out infinite; }
     `}</style>
-  </div>
-);
-
-
+    </div>
+  );
 };
 
 export default VerifyCapture;

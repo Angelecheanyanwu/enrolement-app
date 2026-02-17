@@ -13,7 +13,7 @@ import Link from "next/link";
 import React, { useMemo, useState } from "react";
 import { PiFingerprintBold } from "react-icons/pi";
 import FaceCapture from "./FaceCapture";
-import Form from "./Form";
+import PersonalInfoModal from "./PersonalInfoModal";
 import Header from "./Header";
 
 const FINGER_BATCHES = [
@@ -69,7 +69,7 @@ const BATCH_ENDPOINT_MAP: Record<BatchId, string> = {
 function base64ToFile(
   base64: string,
   fileName: string,
-  fallbackType = "image/png"
+  fallbackType = "image/png",
 ): File {
   let mime = fallbackType;
   let data = base64;
@@ -97,7 +97,6 @@ enum Step {
 }
 
 const initialForm: EnrollmentFormData = {
-  nin: "",
   title: "",
   surname: "",
   first_name: "",
@@ -108,7 +107,7 @@ const initialForm: EnrollmentFormData = {
   nationality: "",
   gender: "M",
   email_address: "",
-  telephone_no: "",
+  telephone_no: "+234",
   address_line_one: "",
   address_line_two: "",
   r_lga: "",
@@ -139,15 +138,17 @@ const FingerPrintCapture: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitDone, setSubmitDone] = useState<boolean>(false);
 
+  const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
+
   const [sessionUserId] = useState<string>(
-    () => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+    () => `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
   );
 
   const currentBatch = FINGER_BATCHES[currentBatchIndex];
 
   const capturedCount = useMemo(
     () => Object.keys(capturedBatches).length,
-    [capturedBatches]
+    [capturedBatches],
   );
 
   const allBatchesCaptured = capturedCount === FINGER_BATCHES.length;
@@ -156,8 +157,8 @@ const FingerPrintCapture: React.FC = () => {
     step === Step.Fingerprints
       ? "Fingerprint Enrollment"
       : step === Step.PersonalInfo
-      ? "Personal Information"
-      : "Face Capture";
+        ? "Personal Information"
+        : "Face Capture";
 
   const fetchFingerprintBatch = async (batchId: BatchId) => {
     try {
@@ -237,7 +238,7 @@ const FingerPrintCapture: React.FC = () => {
       alert(
         `Failed to scan fingerprint batch: ${
           e instanceof Error ? e.message : "Unknown error"
-        }`
+        }`,
       );
     }
   };
@@ -265,7 +266,6 @@ const FingerPrintCapture: React.FC = () => {
     }
   };
 
-  // ✅ NO AUTO-SCAN: selecting just changes stage
   const handleBatchSelect = (index: number) => {
     setCurrentBatchIndex(index);
   };
@@ -285,51 +285,13 @@ const FingerPrintCapture: React.FC = () => {
   const goToPersonalInfo = () => {
     if (!allBatchesCaptured) return;
     setStep(Step.PersonalInfo);
+    setShowPersonalInfoModal(true);
   };
-
   const goBackToFingerprints = () => setStep(Step.Fingerprints);
 
-  const validatePersonalInfo = () => {
-    const e: Partial<Record<keyof EnrollmentFormData, string>> = {};
-    const required: (keyof EnrollmentFormData)[] = [
-      "nin",
-      "title",
-      "surname",
-      "first_name",
-      "middle_name",
-      "birth_date",
-      "birth_state",
-      "birth_lga",
-      "nationality",
-      "gender",
-      "email_address",
-      "telephone_no",
-      "address_line_one",
-      "address_line_two",
-      "r_lga",
-      "r_state",
-      "town",
-    ];
-
-    required.forEach((k) => {
-      const val = form[k] as unknown as string;
-      if (!val || String(val).trim() === "") e[k] = "Required";
-    });
-
-    if (!/^\d{11}$/.test(form.nin)) e.nin = "NIN must be 11 digits";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_address))
-      e.email_address = "Invalid email";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.birth_date))
-      e.birth_date = "Use YYYY-MM-DD";
-    if (!form.height || Number(form.height) <= 0)
-      e.height = "Enter height in meters";
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const goToFace = () => {
-    if (validatePersonalInfo()) setStep(Step.Face);
+  const handlePersonalInfoComplete = () => {
+    setShowPersonalInfoModal(false);
+    setStep(Step.Face);
   };
 
   const handleSubmitEnrollment = async () => {
@@ -337,9 +299,9 @@ const FingerPrintCapture: React.FC = () => {
     try {
       const fd = new FormData();
 
+      // NIN removed - no longer included in submission
       (
         [
-          "nin",
           "title",
           "surname",
           "first_name",
@@ -361,9 +323,14 @@ const FingerPrintCapture: React.FC = () => {
 
       fd.append("height", String(Number(form.height || 0)));
 
-      (["face_image", "left_four", "right_four", "thumbs"] as (
-        | keyof EnrollmentFormData
-      )[]).forEach((k) => {
+      (
+        [
+          "face_image",
+          "left_four",
+          "right_four",
+          "thumbs",
+        ] as (keyof EnrollmentFormData)[]
+      ).forEach((k) => {
         const f = form[k] as unknown as File | null;
         if (f) fd.append(k, f, f.name || `${String(k)}.png`);
       });
@@ -388,7 +355,7 @@ const FingerPrintCapture: React.FC = () => {
       alert(
         `Failed to submit enrollment: ${
           err instanceof Error ? err.message : "Unknown error"
-        }`
+        }`,
       );
     } finally {
       setIsSubmitting(false);
@@ -541,29 +508,26 @@ const FingerPrintCapture: React.FC = () => {
                               alt={currentBatch.name}
                               className="max-h-full max-w-full object-contain rounded-lg"
                             />
-         
                           </div>
-                            ) : isScanning ? (
-                            <div className="relative flex h-full w-full flex-col items-center justify-center bg-green-500/50">
-                              <div className="animate-scan absolute left-0 right-0 h-1 bg-green-600" />
+                        ) : isScanning ? (
+                          <div className="relative flex h-full w-full flex-col items-center justify-center bg-green-500/50">
+                            <div className="animate-scan absolute left-0 right-0 h-1 bg-green-600" />
 
-                          
-                              <div className="flex gap-3 sm:gap-4 mb-4">
-                                {currentBatch.fingers.map((_, idx) => (
-                                  <PiFingerprintBold
-                                    key={idx}
-                                    className="h-10 w-10 sm:h-14 sm:w-14 lg:h-16 lg:w-16 animate-pulse text-white"
-                                    style={{ animationDelay: `${idx * 0.15}s` }}
-                                  />
-                                ))}
-                              </div>
-
-                              <p className="text-white font-semibold text-base sm:text-lg animate-pulse">
-                                Scanning...
-                              </p>
+                            <div className="flex gap-3 sm:gap-4 mb-4">
+                              {currentBatch.fingers.map((_, idx) => (
+                                <PiFingerprintBold
+                                  key={idx}
+                                  className="h-10 w-10 sm:h-14 sm:w-14 lg:h-16 lg:w-16 animate-pulse text-white"
+                                  style={{ animationDelay: `${idx * 0.15}s` }}
+                                />
+                              ))}
                             </div>
-                          )
-                         : (
+
+                            <p className="text-white font-semibold text-base sm:text-lg animate-pulse">
+                              Scanning...
+                            </p>
+                          </div>
+                        ) : (
                           <div className="flex h-full w-full items-center justify-center">
                             <PiFingerprintBold className="h-32 w-32 text-gray-300" />
                           </div>
@@ -631,86 +595,98 @@ const FingerPrintCapture: React.FC = () => {
 
           {step === Step.PersonalInfo && (
             <div className="w-full max-w-5xl mx-auto">
-              <Form
+              <PersonalInfoModal
+                isOpen={true}
                 form={form}
                 errors={errors}
                 setForm={setForm}
-                onBack={goBackToFingerprints}
-                onSubmit={goToFace}
+                setErrors={setErrors}
+                onClose={goBackToFingerprints}
+                onComplete={handlePersonalInfoComplete}
               />
             </div>
           )}
-
           {step === Step.Face && (
             <div className="w-full max-w-5xl mx-auto p-4 md:p-6">
-              <div className="rounded-lg bg-white p-6 shadow">
-                <FaceCapture
-                  isSubmitting={isSubmitting}
-                  onBack={() => setStep(Step.PersonalInfo)}
-                  onComplete={async (file) => {
-                    setIsSubmitting(true);
-                    try {
-                      const fd = new FormData();
+              <FaceCapture
+                isSubmitting={isSubmitting}
+                onBack={() => setShowPersonalInfoModal(true)}
+                onComplete={async (file) => {
+                  setIsSubmitting(true);
+                  try {
+                    const fd = new FormData();
 
-                      (
-                        [
-                          "nin",
-                          "title",
-                          "surname",
-                          "first_name",
-                          "middle_name",
-                          "birth_date",
-                          "birth_state",
-                          "birth_lga",
-                          "nationality",
-                          "gender",
-                          "email_address",
-                          "telephone_no",
-                          "address_line_one",
-                          "address_line_two",
-                          "r_lga",
-                          "r_state",
-                          "town",
-                        ] as (keyof EnrollmentFormData)[]
-                      ).forEach((k) => fd.append(k, String(form[k] ?? "")));
+                    (
+                      [
+                        "title",
+                        "surname",
+                        "first_name",
+                        "middle_name",
+                        "birth_date",
+                        "birth_state",
+                        "birth_lga",
+                        "nationality",
+                        "gender",
+                        "email_address",
+                        "telephone_no",
+                        "address_line_one",
+                        "address_line_two",
+                        "r_lga",
+                        "r_state",
+                        "town",
+                      ] as (keyof EnrollmentFormData)[]
+                    ).forEach((k) => fd.append(k, String(form[k] ?? "")));
 
-                      fd.append("height", String(Number(form.height || 0)));
+                    fd.append("height", String(Number(form.height || 0)));
 
-                      if (file) fd.append("face_image", file, file.name || "face.png");
+                    if (file)
+                      fd.append("face_image", file, file.name || "face.png");
 
-                      const leftFourFile = form.left_four as unknown as File | null;
-                      if (leftFourFile)
-                        fd.append("left_four", leftFourFile, leftFourFile.name || "left_four.png");
+                    const leftFourFile =
+                      form.left_four as unknown as File | null;
+                    if (leftFourFile)
+                      fd.append(
+                        "left_four",
+                        leftFourFile,
+                        leftFourFile.name || "left_four.png",
+                      );
 
-                      const rightFourFile = form.right_four as unknown as File | null;
-                      if (rightFourFile)
-                        fd.append("right_four", rightFourFile, rightFourFile.name || "right_four.png");
+                    const rightFourFile =
+                      form.right_four as unknown as File | null;
+                    if (rightFourFile)
+                      fd.append(
+                        "right_four",
+                        rightFourFile,
+                        rightFourFile.name || "right_four.png",
+                      );
 
-                      const thumbsFile = form.thumbs as unknown as File | null;
-                      if (thumbsFile)
-                        fd.append("thumbs", thumbsFile, thumbsFile.name || "thumbs.png");
+                    const thumbsFile = form.thumbs as unknown as File | null;
+                    if (thumbsFile)
+                      fd.append(
+                        "thumbs",
+                        thumbsFile,
+                        thumbsFile.name || "thumbs.png",
+                      );
 
-                      const resp = await fetch(`${API_URL}/enroll`, {
-                        method: "POST",
-                        body: fd,
-                      });
+                    const resp = await fetch(`${API_URL}/enroll`, {
+                      method: "POST",
+                      body: fd,
+                    });
 
-                      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-                      setSubmitDone(true);
-                    } catch (err) {
-                      console.error("Enrollment failed:", err);
-                      alert("Enrollment failed.");
-                      setIsSubmitting(false);
-                    }
-                  }}
-                />
-              </div>
+                    setSubmitDone(true);
+                  } catch (err) {
+                    console.error("Enrollment failed:", err);
+                    alert("Enrollment failed.");
+                    setIsSubmitting(false);
+                  }
+                }}
+              />
             </div>
           )}
         </div>
       </main>
-
       {sidebarOpen && (
         <div className="fixed inset-0 z-[80]">
           <button

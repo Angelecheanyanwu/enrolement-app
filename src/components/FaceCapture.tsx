@@ -23,8 +23,7 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
     if (file && file.type.startsWith("image/")) {
       setFaceFile(file);
       const reader = new FileReader();
-      reader.onload = (ev) =>
-        setCapturedImage(ev.target?.result as string);
+      reader.onload = (ev) => setCapturedImage(ev.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -38,7 +37,12 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
   };
 
   const handleSubmit = () => {
-    if (faceFile) onComplete(faceFile);
+    console.log('Face file:', faceFile);
+    if (faceFile) {
+      onComplete(faceFile);
+    } else {
+      alert('Please capture or upload a face image first.');
+    }
   };
 
   return (
@@ -133,18 +137,7 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
             </button>
           )}
         </div>
-
-        {/* Footer */}
         <div className="mt-6 flex shrink-0 gap-4 border-t pt-5">
-          <button
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-lg bg-gray-200 px-6 py-3 hover:bg-gray-300 disabled:opacity-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
-
           <button
             onClick={handleSubmit}
             disabled={!faceFile || isSubmitting}

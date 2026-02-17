@@ -1,14 +1,14 @@
-export interface User {    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber: string;
-    nin: string; 
-    fingerprints: Record<string, string>; 
-    faceImage: string; 
+export interface User {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  nin: string;
+  fingerprints: Record<string, string>;
+  faceImage: string;
 }
 
 export interface EnrollmentFormData {
-  nin: string;
   title: string;
   surname: string;
   first_name: string;
@@ -30,11 +30,9 @@ export interface EnrollmentFormData {
   left_four: File | null;
   right_four: File | null;
   thumbs: File | null;
-  
 }
 
-export interface VerificationData{
-  nin: string;
+export interface VerificationData {
   right_thumb: File | null;
   right_index: File | null;
   right_middle: File | null;

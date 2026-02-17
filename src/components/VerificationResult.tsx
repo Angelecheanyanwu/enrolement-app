@@ -112,12 +112,12 @@ const VerificationResult: React.FC<VerificationResultProps> = ({ data }) => {
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-8">
                 {imageUrl && (
-                  <div className="flex justify-center md:justify-start">
-                    <div className="overflow-hidden rounded-lg border-4 border-green-300 shadow-md">
+                  <div className="flex justify-center md:justify-start w-fit">
+                    <div className="overflow-hidden rounded-lg border-4 border-green-300 shadow-md w-fit h-fit">
                       <img
                         src={imageUrl}
                         alt="Verified Person"
-                        className="h-40 w-28 sm:h-48 sm:w-36 object-cover"
+                        className="max-h-48 w-auto h-auto object-contain"
                       />
                     </div>
                   </div>
