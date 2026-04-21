@@ -97,6 +97,7 @@ enum Step {
 }
 
 const initialForm: EnrollmentFormData = {
+  nin: "",
   title: "",
   surname: "",
   first_name: "",
@@ -299,9 +300,9 @@ const FingerPrintCapture: React.FC = () => {
     try {
       const fd = new FormData();
 
-      // NIN removed - no longer included in submission
       (
         [
+          "nin",
           "title",
           "surname",
           "first_name",
@@ -618,6 +619,7 @@ const FingerPrintCapture: React.FC = () => {
 
                     (
                       [
+                        "nin",
                         "title",
                         "surname",
                         "first_name",

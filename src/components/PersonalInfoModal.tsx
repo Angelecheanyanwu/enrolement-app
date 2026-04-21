@@ -197,6 +197,8 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
   const validateStep1 = (): boolean => {
     const e: Errors = {};
 
+    if (!form.nin?.trim()) e.nin = "Required";
+    else if (!/^\d{11}$/.test(form.nin)) e.nin = "NIN must be 11 digits";
     if (!form.title?.trim()) e.title = "Required";
     if (!form.surname?.trim()) e.surname = "Required";
     if (!form.first_name?.trim()) e.first_name = "Required";
@@ -378,6 +380,28 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
                     <p className="mt-1 text-xs text-red-600">
                       {errors.first_name}
                     </p>
+                  )}
+                </div>
+
+                {/* NIN */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    NIN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={form.nin}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      setForm((f) => ({ ...f, nin: digits }));
+                    }}
+                    placeholder="11-digit NIN"
+                    inputMode="numeric"
+                    className={`w-full rounded-lg border-2 px-3 py-2.5 ${
+                      errors.nin ? "border-red-500" : "border-gray-300"
+                    } focus:border-green-500 focus:outline-none`}
+                  />
+                  {errors.nin && (
+                    <p className="mt-1 text-xs text-red-600">{errors.nin}</p>
                   )}
                 </div>
 

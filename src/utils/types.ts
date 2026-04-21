@@ -9,6 +9,7 @@ export interface User {
 }
 
 export interface EnrollmentFormData {
+  nin: string;
   title: string;
   surname: string;
   first_name: string;

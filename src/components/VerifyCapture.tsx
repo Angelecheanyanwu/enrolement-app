@@ -104,6 +104,7 @@ const VerifyCapture: React.FC = () => {
 
       const data: { image: string; base64: string; imageName: string } =
         await res.json();
+      console.log("Scan fingerprint response body:", data);
 
       setIsScanning(true);
 
@@ -222,6 +223,7 @@ const VerifyCapture: React.FC = () => {
       }
 
       const responseData = await resp.json();
+      console.log("Verification response body:", responseData);
       setVerifiedData(responseData);
       setSubmitDone(true);
     } catch (err) {
