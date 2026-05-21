@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, ArrowLeft, RefreshCw, Upload, X } from "lucide-react";
+import { Camera, ImagePlus, RefreshCw, Upload, X } from "lucide-react";
 
 interface FaceCaptureProps {
   onComplete: (faceImage: File) => void;
@@ -10,6 +10,7 @@ interface FaceCaptureProps {
 }
 
 type CaptureState = "idle" | "streaming" | "captured";
+type FaceImageSource = "camera" | "upload";
 
 const FaceCapture: React.FC<FaceCaptureProps> = ({
   onComplete,
@@ -18,13 +19,16 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [captureState, setCaptureState] = useState<CaptureState>("idle");
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
+  const [faceImageSource, setFaceImageSource] = useState<FaceImageSource>("camera");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
@@ -43,10 +47,12 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
   // ── start webcam stream ───────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     setCameraError(null);
+    setUploadError(null);
     setFaceDetected(false);
     setCountdown(null);
     setCapturedDataUrl(null);
     setCapturedFile(null);
+    setFaceImageSource("camera");
     setCaptureState("idle");
 
     try {
@@ -209,7 +215,61 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
     setCapturedFile(null);
     setFaceDetected(false);
     setCountdown(null);
+    setUploadError(null);
     startCamera();
+  };
+
+  const handleClearSelection = () => {
+    stopStream();
+    setCapturedDataUrl(null);
+    setCapturedFile(null);
+    setFaceDetected(false);
+    setCountdown(null);
+    setCameraError(null);
+    setUploadError(null);
+    setCaptureState("idle");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleChooseFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+
+    stopStream();
+    setCameraError(null);
+    setUploadError(null);
+    setFaceDetected(false);
+    setCountdown(null);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCapturedDataUrl(ev.target?.result as string);
+      setCapturedFile(file);
+      setFaceImageSource("upload");
+      setCaptureState("captured");
+    };
+    reader.onerror = () => {
+      setUploadError("Could not read the selected image. Please try another file.");
+      setCapturedDataUrl(null);
+      setCapturedFile(null);
+      setCaptureState("idle");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = () => {
@@ -232,8 +292,10 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
           <h2 className="mb-2 text-2xl font-bold text-gray-800">Face Capture</h2>
           <p className="text-gray-600">
             {isCaptured
-              ? "Photo captured! Review and click Upload to proceed."
-              : "Position your face in the frame — a photo will be taken automatically."}
+              ? faceImageSource === "upload"
+                ? "Photo selected. Review it and click Upload to proceed."
+                : "Photo captured! Review it and click Upload to proceed."
+              : "Capture a live photo or upload an existing face image."}
           </p>
         </div>
 
@@ -260,14 +322,14 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
               <>
                 <img
                   src={capturedDataUrl}
-                  alt="Captured face"
+                  alt={faceImageSource === "upload" ? "Uploaded face" : "Captured face"}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <button
                   type="button"
-                  onClick={handleRetake}
+                  onClick={handleClearSelection}
                   className="absolute top-2 right-2 rounded-full bg-white p-2 shadow hover:bg-gray-100 z-10"
-                  title="Retake"
+                  title="Remove photo"
                 >
                   <X className="h-4 w-4 text-gray-700" />
                 </button>
@@ -275,7 +337,7 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
             )}
 
             {/* Idle placeholder */}
-            {isIdle && !cameraError && (
+            {isIdle && !cameraError && !uploadError && (
               <div className="flex flex-col items-center gap-3 text-gray-400">
                 <Camera className="h-28 w-28" />
                 <p className="text-sm">Camera not started</p>
@@ -287,6 +349,13 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
               <div className="flex flex-col items-center gap-3 text-center text-red-400 px-4">
                 <Camera className="h-16 w-16" />
                 <p className="text-sm">{cameraError}</p>
+              </div>
+            )}
+
+            {uploadError && !cameraError && (
+              <div className="flex flex-col items-center gap-3 text-center text-red-400 px-4">
+                <ImagePlus className="h-16 w-16" />
+                <p className="text-sm">{uploadError}</p>
               </div>
             )}
 
@@ -323,24 +392,44 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
         <div className="mt-4 shrink-0 rounded-lg bg-blue-50 p-4 text-sm text-blue-900">
           <ul className="list-disc list-inside space-y-1">
             <li>Face must be clear and well-lit</li>
+            <li>Uploaded images should be JPG, PNG, or WEBP files</li>
             <li>No hats, glasses, or face coverings</li>
             <li>Look directly at the camera</li>
             <li>Plain background recommended</li>
-            <li>Hold still — photo is taken automatically when your face is detected</li>
+            <li>For camera capture, hold still while the photo is taken automatically</li>
           </ul>
         </div>
 
         {/* Action buttons */}
-        <div className="mt-4 flex justify-center shrink-0">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        <div className="mt-4 flex flex-wrap justify-center gap-3 shrink-0">
           {isIdle && (
-            <button
-              onClick={startCamera}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Camera className="h-5 w-5" />
-              Start Camera
-            </button>
+            <>
+              <button
+                onClick={startCamera}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Camera className="h-5 w-5" />
+                {cameraError ? "Try Camera Again" : "Start Camera"}
+              </button>
+
+              <button
+                onClick={handleChooseFile}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-gray-100 px-6 py-3 font-semibold text-gray-800 hover:bg-gray-200 disabled:opacity-50"
+              >
+                <ImagePlus className="h-5 w-5" />
+                Upload Image
+              </button>
+            </>
           )}
 
           {isStreaming && (
@@ -355,14 +444,27 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({
           )}
 
           {isCaptured && (
-            <button
-              onClick={handleRetake}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 rounded-lg bg-yellow-500 px-6 py-3 font-semibold text-white hover:bg-yellow-600 disabled:opacity-50"
-            >
-              <RefreshCw className="h-5 w-5" />
-              Retake
-            </button>
+            <>
+              <button
+                onClick={handleRetake}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-yellow-500 px-6 py-3 font-semibold text-white hover:bg-yellow-600 disabled:opacity-50"
+              >
+                <RefreshCw className="h-5 w-5" />
+                {faceImageSource === "upload" ? "Use Camera Instead" : "Retake"}
+              </button>
+
+              <button
+                onClick={handleChooseFile}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-gray-100 px-6 py-3 font-semibold text-gray-800 hover:bg-gray-200 disabled:opacity-50"
+              >
+                <ImagePlus className="h-5 w-5" />
+                {faceImageSource === "upload"
+                  ? "Choose Another Image"
+                  : "Upload Image Instead"}
+              </button>
+            </>
           )}
         </div>
 
