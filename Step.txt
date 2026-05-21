@@ -1,0 +1,10 @@
+Steps to use Realscan in Windows
+powershell
+usbipd list
+usbipd attach --wsl --busid <YOUR_BUSID>
+
+wsl (ubuntu) terminal
+lsusb
+sudo chmod 666 /dev/bus/usb/<bus>/<device>
+sudo docker rm -f realscan_agent
+sudo docker run -d  --rm --name realscan-agent   --privileged   -v /dev/bus/usb:/dev/bus/usb   -p 8010:18010   realscan_agent:1.0.4

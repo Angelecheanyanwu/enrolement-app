@@ -18,7 +18,7 @@ export interface EnrollmentFormData {
   birth_state: string;
   birth_lga: string;
   nationality: string;
-  gender: "M" | "F";
+  gender: "Male" | "Female";
   email_address: string;
   telephone_no: string;
   address_line_one: string;

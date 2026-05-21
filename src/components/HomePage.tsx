@@ -80,14 +80,14 @@ const HomePage = () => {
                   <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </button>
                 
-                <button
+                {/* <button
                   onClick={handleVerify}
                   className="group bg-white text-green-600 px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl border-2 border-green-600 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
                 >
                   <UserCheck className="h-6 w-6" />
                   <span>Verify Identity</span>
                   <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </button> */}
               </div>
               <div className="grid grid-cols-3 gap-6 mt-12 pt-8 border-t border-gray-200">
                 <div className="text-center lg:text-left">

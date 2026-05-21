@@ -159,7 +159,6 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
     if (form.birth_state) {
       const lgas = NIGERIA_STATES_AND_LGAS[form.birth_state] || [];
       setBirthLGAs(lgas);
-      // Reset birth_lga if it's not in the new list
       if (!lgas.includes(form.birth_lga)) {
         setForm((f) => ({ ...f, birth_lga: "" }));
       }
@@ -174,7 +173,6 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
     if (form.r_state) {
       const lgas = NIGERIA_STATES_AND_LGAS[form.r_state] || [];
       setResidentialLGAs(lgas);
-      // Reset r_lga if it's not in the new list
       if (!lgas.includes(form.r_lga)) {
         setForm((f) => ({ ...f, r_lga: "" }));
       }
@@ -202,14 +200,12 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
     if (!form.title?.trim()) e.title = "Required";
     if (!form.surname?.trim()) e.surname = "Required";
     if (!form.first_name?.trim()) e.first_name = "Required";
-    // middle_name is optional
     if (!form.birth_date?.trim()) e.birth_date = "Required";
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(form.birth_date))
       e.birth_date = "Use YYYY-MM-DD";
     if (!form.birth_state?.trim()) e.birth_state = "Required";
     if (!form.birth_lga?.trim()) e.birth_lga = "Required";
     if (!form.gender) e.gender = "Required";
-    // email is optional, but validate format if provided
     if (
       form.email_address?.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_address)
@@ -269,6 +265,7 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
 
   const nigeriaStates = Object.keys(NIGERIA_STATES_AND_LGAS);
   const titleOptions = ["Mr", "Mrs", "Miss", "Dr"];
+  // Gender options now use full words to match API expectation
   const genderOptions = ["Male", "Female"];
 
   return (
@@ -391,7 +388,9 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
                   <input
                     value={form.nin}
                     onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      const digits = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 11);
                       setForm((f) => ({ ...f, nin: digits }));
                     }}
                     placeholder="11-digit NIN"
@@ -485,23 +484,17 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
                   )}
                 </div>
 
-                {/* Gender */}
+                {/* Gender — stores "Male" or "Female" directly for API compatibility */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Gender <span className="text-red-500">*</span>
                   </label>
                   <CustomDropdown
-                    value={
-                      form.gender === "M"
-                        ? "Male"
-                        : form.gender === "F"
-                          ? "Female"
-                          : ""
-                    }
+                    value={form.gender}
                     onChange={(value) =>
                       setForm((f) => ({
                         ...f,
-                        gender: value === "Male" ? "M" : "F",
+                        gender: value as "Male" | "Female",
                       }))
                     }
                     options={genderOptions}
@@ -552,15 +545,11 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
                     value={form.telephone_no}
                     onChange={(e) => {
                       let val = e.target.value;
-                      // Ensure it starts with +234
                       if (!val.startsWith("+234")) {
                         val = "+234" + val.replace(/^\+?234/, "");
                       }
-                      // Extract digits after +234
                       const digitsAfterPrefix = val.slice(4).replace(/\D/g, "");
-                      // Limit to 10 digits
                       const limitedDigits = digitsAfterPrefix.slice(0, 10);
-                      // Reconstruct the phone number
                       setForm((f) => ({
                         ...f,
                         telephone_no: "+234" + limitedDigits,
@@ -701,7 +690,10 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
                     min="0"
                     value={form.height || ""}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, height: Number(e.target.value) }))
+                      setForm((f) => ({
+                        ...f,
+                        height: Number(e.target.value),
+                      }))
                     }
                     placeholder="e.g., 1.75"
                     className={`w-full rounded-lg border-2 px-3 py-2.5 ${
@@ -738,15 +730,13 @@ const PersonalInfoModal: React.FC<PersonalInfoModalProps> = ({
             </>
           ) : (
             <>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handlePrevStep}
-                  className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-gray-700 transition-colors hover:bg-gray-100"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Page 1
-                </button>
-              </div>
+              <button
+                onClick={handlePrevStep}
+                className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-gray-700 transition-colors hover:bg-gray-100"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Page 1
+              </button>
               <button
                 onClick={handleComplete}
                 className="rounded-lg bg-green-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-green-700"
